@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { generateContent } from '@/lib/gemini'
 import { getPrompt } from '@/lib/prompts'
 
+// Force recompile to ensure updated prompt is used by Next.js cache
 export async function POST(req: Request) {
   try {
     const supabase = await createClient()

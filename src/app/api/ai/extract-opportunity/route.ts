@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { extractOpportunityData } from "@/lib/gemini"
+import { createClient } from "@/lib/supabase/server"
 
 export const maxDuration = 60; // Increase max duration for Vercel if needed
 
@@ -33,7 +34,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Please provide either text or a file." }, { status: 400 })
     }
 
-    const extractedData = await extractOpportunityData(parts)
+    // Fetch dynamic master data for AI prompt
+    const supabase = await createClient()
+    const [settingsRes, catalogRes] = await Promise.all([
+      supabase.from('master_settings').select('*').eq('is_active', true),
+      supabase.from('product_catalog').select('*').eq('is_active', true)
+    ])
+    
+    const masterData = {
+      types: settingsRes.data?.filter(s => s.category === 'OPPORTUNITY_TYPE').map(s => s.label) || [],
+      industries: settingsRes.data?.filter(s => s.category === 'INDUSTRY').map(s => s.label) || [],
+      segments: settingsRes.data?.filter(s => s.category === 'SEGMENT').map(s => s.label) || [],
+      pillars: Array.from(new Set(catalogRes.data?.map(p => p.pillar_name) || []))
+    }
+
+    const extractedData = await extractOpportunityData(parts, masterData)
     
     return NextResponse.json(extractedData)
 

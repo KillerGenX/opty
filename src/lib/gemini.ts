@@ -50,17 +50,22 @@ export async function generateContent(
   }
 }
 
-export async function extractOpportunityData(parts: any[]) {
+export async function extractOpportunityData(parts: any[], masterData?: { types: string[], industries: string[], segments: string[], pillars: string[] }) {
+  const typesStr = masterData?.types?.length ? masterData.types.join(", ") : "Connectivity, Cloud Solutions, Cyber Security, Managed Services, IoT / Smart City";
+  const industriesStr = masterData?.industries?.length ? masterData.industries.join(", ") : "Telco, Banking & Finance, Manufacturing, Healthcare, Mining & Energy, Retail";
+  const segmentsStr = masterData?.segments?.length ? masterData.segments.join(", ") : "Enterprise, SME, Government, Wholesale";
+  const pillarsStr = masterData?.pillars?.length ? masterData.pillars.join(", ") : "Connectivity, ICT & Cloud, Managed Service & Security, IoT & Digital";
+
   const systemInstruction = `
 You are an expert Enterprise B2B Presales assistant.
 Your task is to extract opportunity details from the provided email text, screenshot, or PDF document.
 Extract the following information and output strictly in JSON format matching this schema:
 {
   "opportunity_name": "String (Give a concise title for the project)",
-  "opportunity_type": "String (Classify the main solution type, e.g., Connectivity, Cloud, Security, IoT, or a custom one if none fit)",
+  "opportunity_type": "String (Classify the main solution type into one of these if possible: ${typesStr}, or use a custom one)",
   "customer_name": "String (Name of the client company)",
-  "customer_industry": "String (E.g. Banking, Telco, Manufacturing, Healthcare, Retail, etc. Use custom if not standard)",
-  "customer_segment": "String (E.g. Enterprise, SME, Government, Wholesale. Use custom if not standard)",
+  "customer_industry": "String (Classify into one of these if possible: ${industriesStr}, or use custom)",
+  "customer_segment": "String (Classify into one of these if possible: ${segmentsStr}, or use custom)",
   "customer_pic": "String (Name of the person in charge or contact person if available)",
   "customer_contact": "String (Email or phone if available)",
   "customer_address": "String (Full physical address of the customer or site)",
@@ -72,7 +77,7 @@ Extract the following information and output strictly in JSON format matching th
   "competitors": "String (Any mentioned competitors)",
   "line_items": [
     {
-      "pillar": "String (Classify into: Connectivity, Cloud, Security, Managed Services, or IoT)",
+      "pillar": "String (Classify into one of these if possible: ${pillarsStr})",
       "product_name": "String (Best guess of the product/service name, e.g. MPLS L2, DIA, etc.)",
       "specification": "String (Technical details, SLA, or term. For telco links, include Site A, Site B, and OTC details here)",
       "quantity": "Number (For telco links, this is the Bandwidth numeric value, e.g. 100 for 100 Mbps)",

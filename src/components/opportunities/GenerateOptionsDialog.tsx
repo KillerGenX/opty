@@ -71,7 +71,7 @@ export function GenerateOptionsDialog({ open, onOpenChange, onGenerate, docTitle
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-emerald-600" />
@@ -82,7 +82,7 @@ export function GenerateOptionsDialog({ open, onOpenChange, onGenerate, docTitle
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6 py-4">
+        <div className="flex-1 overflow-y-auto flex flex-col gap-6 py-4 pr-2 -mr-2">
           <div className="flex flex-col gap-2">
             <Label>Reference Image (Optional)</Label>
             <div className="text-xs text-slate-500 mb-1">
@@ -134,13 +134,12 @@ export function GenerateOptionsDialog({ open, onOpenChange, onGenerate, docTitle
               placeholder="E.g. Focus heavily on security aspects, use specific terminology, etc."
               value={context}
               onChange={(e) => setContext(e.target.value)}
-              className="resize-none"
-              rows={3}
+              className="resize-y min-h-[100px]"
             />
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-2 shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isGenerating}>Cancel</Button>
           <Button 
             className="bg-emerald-600 hover:bg-emerald-700 text-white" 

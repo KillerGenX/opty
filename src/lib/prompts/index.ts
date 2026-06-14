@@ -7,6 +7,8 @@ export const generatePromptContext = (opty: any, lineItems: any[]) => {
 - Customer Industry: ${opty.customer_industry || '-'}
 - Opportunity Stage: ${opty.stage}
 - Expected Close Date: ${opty.expected_close_date || '-'}
+- Estimated Value / Budget: ${opty.amount ? `Rp ${opty.amount.toLocaleString()}` : 'Not specified'}
+- Win Probability: ${opty.probability ? `${opty.probability}%` : 'Not specified'}
 
 [REQUIREMENTS]
 - Scope of Work: ${opty.scope_of_work || 'Not specified'}
@@ -34,7 +36,7 @@ export const getPrompt = (docType: string, opty: any, lineItems: any[]) => {
   
   switch (docType) {
     case 'design':
-      return `${baseContext}\n\n[TASK]\nGenerate a High-Level Design (HLD) / Solution Architecture document. Structure the HTML into the following sections: 1. Executive Summary, 2. Proposed Architecture Overview, 3. Technical Components & Specifications, 4. Integration Points, 5. Security & Availability Considerations.`
+      return `${baseContext}\n\n[TASK]\nBerperanlah sebagai teman akrab yang juga seorang Senior Solution Engineer / Enterprise Solution yang sangat jago. Kamu sedang membantu temanmu (user) untuk me-review peluang proyek (opportunity) ini.\n\nGunakan gaya bahasa kasual, asyik, suportif, dan solutif (seperti ngobrol dengan rekan kerja yang akrab, pakai kata "Gue", "Lu", "Bro", atau bahasa gaul kantor yang profesional). JANGAN KAKU ATAU BAKU!\n\n[OUTPUT FORMAT - CRITICAL]\nKamu TIDAK BOLEH menghasilkan teks biasa atau HTML. Kamu HARUS HANYA menghasilkan objek JSON murni (tanpa tag markdown \`\`\`json) dengan struktur berikut:\n{\n  "greeting": "String (Kalimat sapaan singkat dan suportif tentang deal ini)",\n  "insights": [\n    "String (Poin kekuatan deal/peluang ini)",\n    "..."\n  ],\n  "risks": [\n    "String (Poin risiko teknis atau informasi yang masih bolong/kurang)",\n    "..."\n  ],\n  "win_strategy": [\n    "String (Ide brilian/strategi tempur untuk mengalahkan kompetitor dan memenangkan deal ini)",\n    "..."\n  ],\n  "objections": [\n    { "objection": "String (Alasan klien mungkin menolak/menawar)", "response": "String (Cara cerdas menjawab/menangkis alasan tersebut)" }\n  ],\n  "next_steps": [\n    { "action": "String (Tindakan konkret)", "priority": "High | Medium | Low" }\n  ],\n  "questions": [\n    "String (Pertanyaan teknis tajam untuk ditanyakan ke klien nanti)"\n  ]\n}\n\nPASTIKAN OUTPUT MURNI JSON AGAR BISA DI-PARSE OLEH SISTEM!`
     
     case 'boq':
       return `${baseContext}\n\n[TASK]\nGenerate a Bill of Quantities (BoQ) document. Structure the HTML into: 1. Project Overview, 2. A detailed <table> containing all Line Items grouped by Pillar, 3. Assumptions and Prerequisites.`

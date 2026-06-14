@@ -12,9 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Building2, FileText, Target, BrainCircuit, Loader2 } from "lucide-react"
 import { MagicImportDialog } from "./MagicImportDialog"
 
-const STANDARD_TYPES = ["Connectivity", "Cloud Solutions", "Cyber Security", "Managed Services", "IoT / Smart City"];
-const STANDARD_SEGMENTS = ["Enterprise", "SME", "Government", "Wholesale"];
-const STANDARD_INDUSTRIES = ["Telco", "Banking & Finance", "Manufacturing", "Healthcare", "Mining & Energy", "Retail", "Other"];
+const FALLBACK_TYPES = ["Connectivity", "Cloud Solutions", "Cyber Security", "Managed Services", "IoT / Smart City"];
+const FALLBACK_SEGMENTS = ["Enterprise", "SME", "Government", "Wholesale"];
+const FALLBACK_INDUSTRIES = ["Telco", "Banking & Finance", "Manufacturing", "Healthcare", "Mining & Energy", "Retail", "Other"];
 
 export type OpportunityFormData = {
   opportunity_name: string;
@@ -49,6 +49,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
   const [loading, setLoading] = useState(false)
   const [extractedLineItems, setExtractedLineItems] = useState<any[]>([])
   const [historicalCustomers, setHistoricalCustomers] = useState<any[]>([])
+  const [masterSettings, setMasterSettings] = useState<any[]>([])
   
   useEffect(() => {
     // Fetch unique historical customers for autocomplete
@@ -71,8 +72,26 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
         setHistoricalCustomers(unique)
       }
     }
+    
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('master_settings').select('*').eq('is_active', true).order('sort_order')
+      if (data) setMasterSettings(data)
+    }
+    
     fetchCustomers()
+    fetchSettings()
   }, [])
+
+  const getOptions = (category: string, fallback: string[]) => {
+    const opts = masterSettings.filter(s => s.category === category)
+    if (opts.length === 0) return fallback
+    return opts.map(s => s.label)
+  }
+  
+  const typesList = getOptions('OPPORTUNITY_TYPE', FALLBACK_TYPES)
+  const segmentsList = getOptions('SEGMENT', FALLBACK_SEGMENTS)
+  const industriesList = getOptions('INDUSTRY', FALLBACK_INDUSTRIES)
+  const stagesList = getOptions('STAGE', ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Won', 'Lost'])
   
   const [formData, setFormData] = useState<OpportunityFormData>({
     opportunity_name: initialData?.opportunity_name || "",
@@ -271,36 +290,29 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
           
           <div className="space-y-2">
             <Label htmlFor="opportunity_type" className="text-slate-700 dark:text-zinc-300">Solution Type</Label>
-            <Select value={formData.opportunity_type} onValueChange={(val) => handleChange("opportunity_type", val || "")}>
-              <SelectTrigger className="bg-white dark:bg-zinc-950">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {STANDARD_TYPES.map(type => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-                {formData.opportunity_type && !STANDARD_TYPES.includes(formData.opportunity_type) && (
-                  <SelectItem value={formData.opportunity_type}>{formData.opportunity_type} (AI Suggested)</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+                    <Select value={formData.opportunity_type} onValueChange={(val) => handleChange("opportunity_type", val || "")}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {typesList.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        {formData.opportunity_type && !typesList.includes(formData.opportunity_type) && (
+                          <SelectItem value={formData.opportunity_type}>{formData.opportunity_type} (AI)</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="stage" className="text-slate-700 dark:text-zinc-300">Stage</Label>
-            <Select value={formData.stage} onValueChange={(val) => handleChange("stage", val || "")}>
-              <SelectTrigger className="bg-white dark:bg-zinc-950">
-                <SelectValue placeholder="Select stage" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Prospecting">Prospecting</SelectItem>
-                <SelectItem value="Qualification">Qualification</SelectItem>
-                <SelectItem value="Proposal">Proposal</SelectItem>
-                <SelectItem value="Negotiation">Negotiation</SelectItem>
-                <SelectItem value="Won">Won</SelectItem>
-                <SelectItem value="Lost">Lost</SelectItem>
-              </SelectContent>
-            </Select>
+                    <Select value={formData.stage} onValueChange={(val) => handleChange("stage", val || "")}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select stage" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stagesList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -357,35 +369,31 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="customer_segment" className="text-slate-700 dark:text-zinc-300">Segment</Label>
-              <Select value={formData.customer_segment} onValueChange={(val) => handleChange("customer_segment", val || "")}>
-                <SelectTrigger className="bg-white dark:bg-zinc-950">
-                  <SelectValue placeholder="Segment" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STANDARD_SEGMENTS.map(seg => (
-                    <SelectItem key={seg} value={seg}>{seg}</SelectItem>
-                  ))}
-                  {formData.customer_segment && !STANDARD_SEGMENTS.includes(formData.customer_segment) && (
-                    <SelectItem value={formData.customer_segment}>{formData.customer_segment} (AI Suggested)</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                    <Select value={formData.customer_segment} onValueChange={(val) => handleChange("customer_segment", val || "")}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select segment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {segmentsList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        {formData.customer_segment && !segmentsList.includes(formData.customer_segment) && (
+                          <SelectItem value={formData.customer_segment}>{formData.customer_segment} (AI)</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="customer_industry" className="text-slate-700 dark:text-zinc-300">Industry</Label>
-              <Select value={formData.customer_industry} onValueChange={(val) => handleChange("customer_industry", val || "")}>
-                <SelectTrigger className="bg-white dark:bg-zinc-950">
-                  <SelectValue placeholder="Industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STANDARD_INDUSTRIES.map(ind => (
-                    <SelectItem key={ind} value={ind}>{ind}</SelectItem>
-                  ))}
-                  {formData.customer_industry && !STANDARD_INDUSTRIES.includes(formData.customer_industry) && (
-                    <SelectItem value={formData.customer_industry}>{formData.customer_industry} (AI Suggested)</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                    <Select value={formData.customer_industry} onValueChange={(val) => handleChange("customer_industry", val || "")}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {industriesList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        {formData.customer_industry && !industriesList.includes(formData.customer_industry) && (
+                          <SelectItem value={formData.customer_industry}>{formData.customer_industry} (AI)</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
             </div>
           </div>
 

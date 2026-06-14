@@ -72,3 +72,23 @@ export interface DocumentRecord {
   version: number
   status: DocStatus
 }
+
+export interface MasterSetting {
+  id: string
+  category: string
+  label: string
+  value: string
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
+
+export interface ProductCatalog {
+  id: string
+  pillar_name: string
+  product_name: string
+  default_unit: string | null
+  default_price: number
+  is_active: boolean
+  created_at: string
+}

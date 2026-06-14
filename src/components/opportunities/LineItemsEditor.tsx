@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { PILLARS, PRODUCT_CATALOG } from "@/lib/products"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -26,6 +25,7 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
   const [items, setItems] = useState<LineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [productCatalog, setProductCatalog] = useState<any[]>([])
   const supabase = createClient()
   const router = useRouter()
 
@@ -35,15 +35,17 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
 
   const fetchItems = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('opportunity_line_items')
-      .select('*')
-      .eq('opportunity_id', opportunityId)
-      .order('created_at', { ascending: true })
+    const [itemsRes, catalogRes] = await Promise.all([
+      supabase.from('opportunity_line_items').select('*').eq('opportunity_id', opportunityId).order('created_at', { ascending: true }),
+      supabase.from('product_catalog').select('*').eq('is_active', true)
+    ])
     
-    if (data) setItems(data)
+    if (itemsRes.data) setItems(itemsRes.data)
+    if (catalogRes.data) setProductCatalog(catalogRes.data)
     setLoading(false)
   }
+  
+  const pillarsList = Array.from(new Set(productCatalog.map(p => p.pillar_name)))
 
   const handleAddItem = () => {
     setItems([...items, {
@@ -81,9 +83,9 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
     // Auto set unit based on product selection
     if (field === 'product_name') {
       const selectedPillar = newItems[index].pillar
-      const product = PRODUCT_CATALOG[selectedPillar as keyof typeof PRODUCT_CATALOG]?.find(p => p.name === value)
-      if (product) {
-        newItems[index].unit = product.unit
+      const product = productCatalog.find(p => p.pillar_name === selectedPillar && p.product_name === value)
+      if (product && product.default_unit) {
+        newItems[index].unit = product.default_unit
       }
     }
     
@@ -152,13 +154,11 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
         <Table>
           <TableHeader className="bg-slate-50/50">
             <TableRow>
-              <TableHead className="w-[140px]">Pillar</TableHead>
-              <TableHead className="w-[200px]">Product</TableHead>
-              <TableHead className="min-w-[250px]">Specification</TableHead>
-              <TableHead className="w-[90px] whitespace-nowrap">Qty</TableHead>
-              <TableHead className="w-[160px] whitespace-nowrap">Unit Price (IDR)</TableHead>
-              <TableHead className="w-[140px] text-right">Total</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-[50%] font-semibold">Item Details</TableHead>
+              <TableHead className="w-[15%] font-semibold">Quantity</TableHead>
+              <TableHead className="w-[20%] font-semibold">Unit Price (IDR)</TableHead>
+              <TableHead className="w-[15%] font-semibold text-right">Total</TableHead>
+              <TableHead className="w-[5%]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -168,77 +168,92 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
               </TableRow>
             ) : (
               items.map((item, idx) => (
-                <TableRow key={item.id || `new-${idx}`}>
-                  <TableCell className="align-top">
-                    <Select value={item.pillar} onValueChange={(val) => handleChange(idx, 'pillar', val)}>
-                      <SelectTrigger className="w-[130px] text-xs">
-                        <SelectValue placeholder="Pillar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PILLARS.map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
-                        {item.pillar && !PILLARS.includes(item.pillar as any) && (
-                          <SelectItem value={item.pillar} className="text-xs">{item.pillar} (AI)</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <div className="relative">
-                      <Input 
-                        list={`products-${idx}`}
-                        value={item.product_name} 
-                        onChange={(e) => handleChange(idx, 'product_name', e.target.value)} 
-                        placeholder="Product name..."
-                        disabled={!item.pillar}
-                        className="w-[190px] text-xs font-medium"
-                      />
-                      <datalist id={`products-${idx}`}>
-                        {item.pillar && PRODUCT_CATALOG[item.pillar as keyof typeof PRODUCT_CATALOG]?.map(p => (
-                          <option key={p.name} value={p.name} />
-                        ))}
-                      </datalist>
+                <TableRow key={item.id || `new-${idx}`} className="group/row hover:bg-slate-50/50 dark:hover:bg-zinc-900/50">
+                  <TableCell className="align-top py-4">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Select value={item.pillar} onValueChange={(val) => handleChange(idx, 'pillar', val)}>
+                          <SelectTrigger className="w-[140px] h-8 text-xs font-semibold border-transparent hover:border-input bg-transparent hover:bg-white dark:hover:bg-zinc-950 shadow-none focus:ring-0 focus:border-emerald-500">
+                            <SelectValue placeholder="Select Pillar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pillarsList.map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
+                            {item.pillar && !pillarsList.includes(item.pillar as any) && (
+                              <SelectItem value={item.pillar} className="text-xs">{item.pillar} (AI)</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        
+                        <div className="relative flex-1">
+                          <Input 
+                            list={`products-${idx}`}
+                            value={item.product_name} 
+                            onChange={(e) => handleChange(idx, 'product_name', e.target.value)} 
+                            placeholder="Product name..."
+                            disabled={!item.pillar}
+                            className="h-8 text-sm font-bold border-transparent hover:border-input bg-transparent hover:bg-white dark:hover:bg-zinc-950 shadow-none focus-visible:ring-0 focus-visible:border-emerald-500 px-2 w-full"
+                          />
+                          <datalist id={`products-${idx}`}>
+                            {productCatalog.filter(p => p.pillar_name === item.pillar).map(p => (
+                              <option key={p.product_name} value={p.product_name} />
+                            ))}
+                          </datalist>
+                        </div>
+                      </div>
+                      
+                      <div className="pl-1">
+                        <Textarea 
+                          value={item.specification} 
+                          onChange={(e) => handleChange(idx, 'specification', e.target.value)} 
+                          placeholder="Add specifications, site details, or notes..."
+                          className="min-h-[60px] text-sm resize-y w-full border-transparent hover:border-input bg-transparent hover:bg-white dark:hover:bg-zinc-950 shadow-none focus-visible:ring-0 focus-visible:border-emerald-500 px-2 py-1.5"
+                        />
+                      </div>
                     </div>
-                    {item.unit && <div className="text-[10px] text-slate-500 mt-1">Def. unit: {item.unit}</div>}
                   </TableCell>
-                  <TableCell className="align-top">
-                    <Textarea 
-                      value={item.specification} 
-                      onChange={(e) => handleChange(idx, 'specification', e.target.value)} 
-                      placeholder="e.g. Site A:..., Site B:..., OTC:..."
-                      className="min-h-[60px] max-h-[120px] text-xs resize-y w-full min-w-[200px]"
-                    />
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <div className="flex flex-col gap-1 items-start">
+                  
+                  <TableCell className="align-top py-4">
+                    <div className="flex items-center gap-2 pt-1">
                       <Input 
                         type="number" 
                         min="1" 
                         value={item.quantity} 
                         onChange={(e) => handleChange(idx, 'quantity', parseInt(e.target.value) || 0)} 
-                        className="w-16 text-xs text-center px-1"
+                        className="w-16 h-8 text-sm text-center px-1 border-transparent hover:border-input bg-transparent hover:bg-white dark:hover:bg-zinc-950 shadow-none focus-visible:ring-0 focus-visible:border-emerald-500"
                       />
-                      {item.unit && <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded w-fit max-w-16 truncate">{item.unit}</span>}
+                      {item.unit && <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">{item.unit}</span>}
                     </div>
                   </TableCell>
-                  <TableCell className="align-top">
-                    <div className="flex flex-col gap-1">
-                      <Input 
-                        type="number" 
-                        min="0" 
-                        value={item.unit_price} 
-                        onChange={(e) => handleChange(idx, 'unit_price', parseInt(e.target.value) || 0)} 
-                        className="w-32 text-xs"
-                      />
-                      <div className="text-[10px] font-medium text-slate-500 truncate w-32">
+                  
+                  <TableCell className="align-top py-4">
+                    <div className="flex flex-col gap-1 pt-1">
+                      <div className="relative">
+                        <span className="absolute left-2 top-1.5 text-xs text-slate-400 font-medium">Rp</span>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          value={item.unit_price} 
+                          onChange={(e) => handleChange(idx, 'unit_price', parseInt(e.target.value) || 0)} 
+                          className="w-full h-8 pl-7 text-sm border-transparent hover:border-input bg-transparent hover:bg-white dark:hover:bg-zinc-950 shadow-none focus-visible:ring-0 focus-visible:border-emerald-500"
+                        />
+                      </div>
+                      <div className="text-[10px] font-medium text-slate-400 pl-2">
                         {formatCurrency(item.unit_price)}
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="font-bold text-right align-top pt-3 text-sm">
+                  
+                  <TableCell className="font-bold text-right align-top py-4 pt-5 text-sm text-slate-900 dark:text-zinc-100">
                     {formatCurrency(item.total_price)}
                   </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(idx, item.id)} className="text-destructive hover:bg-destructive/10">
+                  
+                  <TableCell className="align-top py-4 pt-4 text-center">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleRemoveItem(idx, item.id)} 
+                      className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 opacity-0 group-hover/row:opacity-100 transition-opacity"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -249,11 +264,14 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
         </Table>
       </div>
 
-      <div className="flex justify-between items-center mt-4">
-        <div className="text-xl font-bold">
-          Total: {formatCurrency(items.reduce((sum, item) => sum + (item.total_price || 0), 0))}
+      <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-200/60 dark:border-zinc-800">
+        <div>
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mb-1">Grand Total</p>
+          <div className="text-2xl font-black text-emerald-900 dark:text-emerald-500 tracking-tight">
+            {formatCurrency(items.reduce((sum, item) => sum + (item.total_price || 0), 0))}
+          </div>
         </div>
-        <Button onClick={handleSave} disabled={saving || items.length === 0}>
+        <Button onClick={handleSave} disabled={saving || items.length === 0} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 px-8">
           {saving ? "Saving..." : <><Save className="mr-2 h-4 w-4" /> Save Line Items</>}
         </Button>
       </div>
