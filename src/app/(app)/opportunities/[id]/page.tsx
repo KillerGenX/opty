@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LineItemsEditor } from "@/components/opportunities/LineItemsEditor"
 import { AIDocumentsTab } from "@/components/opportunities/AIDocumentsTab"
+import { OpportunityHeaderActions } from "@/components/opportunities/OpportunityHeaderActions"
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -35,9 +36,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight">{opty.opportunity_name}</h1>
-            <Badge variant="outline" className="text-sm">
-              {opty.stage}
-            </Badge>
+            <OpportunityHeaderActions optyId={opty.id} currentStage={opty.stage} />
           </div>
           <p className="text-slate-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
             {opty.customer_name} {opty.customer_industry ? `• ${opty.customer_industry}` : ''}

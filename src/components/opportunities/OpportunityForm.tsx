@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Building2, FileText, Target, BrainCircuit, Loader2 } from "lucide-react"
 import { MagicImportDialog } from "./MagicImportDialog"
+
+const STANDARD_TYPES = ["Connectivity", "Cloud Solutions", "Cyber Security", "Managed Services", "IoT / Smart City"];
+const STANDARD_SEGMENTS = ["Enterprise", "SME", "Government", "Wholesale"];
+const STANDARD_INDUSTRIES = ["Telco", "Banking & Finance", "Manufacturing", "Healthcare", "Mining & Energy", "Retail", "Other"];
 
 export type OpportunityFormData = {
   opportunity_name: string;
@@ -44,6 +48,31 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [extractedLineItems, setExtractedLineItems] = useState<any[]>([])
+  const [historicalCustomers, setHistoricalCustomers] = useState<any[]>([])
+  
+  useEffect(() => {
+    // Fetch unique historical customers for autocomplete
+    const fetchCustomers = async () => {
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('customer_name, customer_segment, customer_industry, customer_pic, customer_contact, customer_address')
+        .order('created_at', { ascending: false })
+      
+      if (data) {
+        // Deduplicate by customer_name
+        const unique = []
+        const seen = new Set()
+        for (const item of data) {
+          if (item.customer_name && !seen.has(item.customer_name)) {
+            seen.add(item.customer_name)
+            unique.push(item)
+          }
+        }
+        setHistoricalCustomers(unique)
+      }
+    }
+    fetchCustomers()
+  }, [])
   
   const [formData, setFormData] = useState<OpportunityFormData>({
     opportunity_name: initialData?.opportunity_name || "",
@@ -141,9 +170,9 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
           pillar: item.pillar || 'Other',
           product_name: item.product_name || 'Unknown Product',
           specification: item.specification || '',
-          quantity: parseInt(item.quantity) || 1,
-          unit: 'unit',
-          unit_price: 0
+          quantity: item.quantity ? Number(item.quantity) : 1,
+          unit: item.unit || 'unit',
+          unit_price: item.unit_price ? Number(item.unit_price) : 0
         }))
         
         const { error: liError } = await supabase.from('opportunity_line_items').insert(lineItemsToInsert)
@@ -159,14 +188,35 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleCustomerNameChange = (val: string) => {
+    handleChange("customer_name", val)
+    
+    // Auto-fill logic
+    const existing = historicalCustomers.find(c => c.customer_name === val)
+    if (existing) {
+      setFormData(prev => ({
+        ...prev,
+        customer_segment: prev.customer_segment || existing.customer_segment || "",
+        customer_industry: prev.customer_industry || existing.customer_industry || "",
+        customer_pic: prev.customer_pic || existing.customer_pic || "",
+        customer_contact: prev.customer_contact || existing.customer_contact || "",
+        customer_address: prev.customer_address || existing.customer_address || ""
+      }))
+    }
+  }
+
   const handleDataExtracted = (extractedData: Partial<OpportunityFormData> & { line_items?: any[] }) => {
     setFormData(prev => ({
       ...prev,
       opportunity_name: extractedData.opportunity_name || prev.opportunity_name,
+      opportunity_type: extractedData.opportunity_type || prev.opportunity_type,
       customer_name: extractedData.customer_name || prev.customer_name,
+      customer_segment: extractedData.customer_segment || prev.customer_segment,
       customer_industry: extractedData.customer_industry || prev.customer_industry,
       customer_pic: extractedData.customer_pic || prev.customer_pic,
       customer_contact: extractedData.customer_contact || prev.customer_contact,
+      customer_address: extractedData.customer_address || prev.customer_address,
+      expected_close_date: extractedData.expected_close_date || prev.expected_close_date,
       scope_of_work: extractedData.scope_of_work || prev.scope_of_work,
       technical_requirements: extractedData.technical_requirements || prev.technical_requirements,
       pain_points: extractedData.pain_points || prev.pain_points,
@@ -226,11 +276,12 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Connectivity">Connectivity</SelectItem>
-                <SelectItem value="Cloud">Cloud Solutions</SelectItem>
-                <SelectItem value="Security">Cyber Security</SelectItem>
-                <SelectItem value="Managed Services">Managed Services</SelectItem>
-                <SelectItem value="IoT">IoT / Smart City</SelectItem>
+                {STANDARD_TYPES.map(type => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+                {formData.opportunity_type && !STANDARD_TYPES.includes(formData.opportunity_type) && (
+                  <SelectItem value={formData.opportunity_type}>{formData.opportunity_type} (AI Suggested)</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -290,11 +341,17 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
             <Label htmlFor="customer_name" className="text-slate-700 dark:text-zinc-300">Customer Name <span className="text-red-500">*</span></Label>
             <Input 
               id="customer_name" required 
+              list="historical-customers"
               placeholder="e.g. PT Bank Central Asia"
               value={formData.customer_name}
-              onChange={(e) => handleChange("customer_name", e.target.value)}
+              onChange={(e) => handleCustomerNameChange(e.target.value)}
               className="bg-white dark:bg-zinc-950"
             />
+            <datalist id="historical-customers">
+              {historicalCustomers.map(c => (
+                <option key={c.customer_name} value={c.customer_name} />
+              ))}
+            </datalist>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
@@ -305,10 +362,12 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
                   <SelectValue placeholder="Segment" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Enterprise">Enterprise</SelectItem>
-                  <SelectItem value="SME">SME</SelectItem>
-                  <SelectItem value="Government">Government</SelectItem>
-                  <SelectItem value="Wholesale">Wholesale</SelectItem>
+                  {STANDARD_SEGMENTS.map(seg => (
+                    <SelectItem key={seg} value={seg}>{seg}</SelectItem>
+                  ))}
+                  {formData.customer_segment && !STANDARD_SEGMENTS.includes(formData.customer_segment) && (
+                    <SelectItem value={formData.customer_segment}>{formData.customer_segment} (AI Suggested)</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -319,12 +378,12 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
                   <SelectValue placeholder="Industry" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Telco">Telco</SelectItem>
-                  <SelectItem value="Banking & Finance">Banking & Finance</SelectItem>
-                  <SelectItem value="Manufacturing">Manufacturing</SelectItem>
-                  <SelectItem value="Mining & Energy">Mining & Energy</SelectItem>
-                  <SelectItem value="Retail">Retail</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  {STANDARD_INDUSTRIES.map(ind => (
+                    <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                  ))}
+                  {formData.customer_industry && !STANDARD_INDUSTRIES.includes(formData.customer_industry) && (
+                    <SelectItem value={formData.customer_industry}>{formData.customer_industry} (AI Suggested)</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
