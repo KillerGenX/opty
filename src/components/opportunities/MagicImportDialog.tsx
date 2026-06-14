@@ -10,21 +10,25 @@ import { Sparkles, Upload, FileText, ImageIcon, Loader2, CheckCircle2 } from "lu
 export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data: any) => void }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState("")
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0])
+      setFiles(prev => [...prev, ...Array.from(e.target.files!)])
       setError("")
     }
   }
 
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
   const handleExtract = async () => {
-    if (!text.trim() && !file) {
-      setError("Please provide either text or a file.")
+    if (!text.trim() && files.length === 0) {
+      setError("Please provide either text or at least one file.")
       return
     }
 
@@ -34,7 +38,7 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
     try {
       const formData = new FormData()
       if (text.trim()) formData.append("text", text)
-      if (file) formData.append("file", file)
+      files.forEach(file => formData.append("files", file))
 
       const response = await fetch('/api/ai/extract-opportunity', {
         method: 'POST',
@@ -51,7 +55,7 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
       setOpen(false)
       // reset state
       setText("")
-      setFile(null)
+      setFiles([])
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -103,24 +107,34 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
                   ref={fileInputRef} 
                   onChange={handleFileChange} 
                   className="hidden" 
+                  multiple
                   accept="application/pdf,image/png,image/jpeg,image/webp"
                 />
                 
-                {file ? (
-                  <>
-                    <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-2" />
-                    <p className="font-medium text-slate-700 dark:text-zinc-300">{file.name}</p>
-                    <p className="text-xs text-slate-500 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    <Button variant="link" size="sm" onClick={(e) => { e.stopPropagation(); setFile(null); }} className="mt-2 text-red-500">Remove</Button>
-                  </>
+                {files.length > 0 ? (
+                  <div className="w-full flex flex-col gap-2 text-left">
+                    <p className="font-medium text-slate-700 dark:text-zinc-300 text-center mb-2">Selected Files ({files.length})</p>
+                    {files.map((f, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-slate-100 dark:bg-zinc-800 p-2 rounded-md">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                          <p className="text-sm font-medium truncate">{f.name}</p>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeFile(idx); }} className="text-red-500 h-6 px-2 hover:bg-red-100 dark:hover:bg-red-900/30">Remove</Button>
+                      </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="mt-2">
+                      Add More Files
+                    </Button>
+                  </div>
                 ) : (
                   <>
                     <div className="flex gap-2 text-slate-400 mb-4">
                       <FileText className="h-8 w-8" />
                       <ImageIcon className="h-8 w-8" />
                     </div>
-                    <p className="font-medium text-slate-700 dark:text-zinc-300">Click to upload PDF or Image</p>
-                    <p className="text-xs text-slate-500 mt-2">Supports .pdf, .png, .jpg (Max 5MB)</p>
+                    <p className="font-medium text-slate-700 dark:text-zinc-300">Click to upload PDFs or Images</p>
+                    <p className="text-xs text-slate-500 mt-2">Supports .pdf, .png, .jpg (Multiple files allowed)</p>
                   </>
                 )}
               </div>
@@ -133,7 +147,7 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
             <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
             <Button 
               onClick={handleExtract} 
-              disabled={loading || (!text.trim() && !file)}
+              disabled={loading || (!text.trim() && files.length === 0)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white min-w-32"
             >
               {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scanning...</> : "Extract Data"}

@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const text = formData.get("text") as string
-    const file = formData.get("file") as File | null
+    const files = formData.getAll("files") as File[]
 
     const parts: any[] = []
 
@@ -15,16 +15,18 @@ export async function POST(req: NextRequest) {
       parts.push({ text: text })
     }
 
-    if (file) {
-      const buffer = await file.arrayBuffer()
-      const base64Data = Buffer.from(buffer).toString("base64")
-      
-      parts.push({
-        inlineData: {
-          data: base64Data,
-          mimeType: file.type
-        }
-      })
+    for (const file of files) {
+      if (file && file.size > 0) {
+        const buffer = await file.arrayBuffer()
+        const base64Data = Buffer.from(buffer).toString("base64")
+        
+        parts.push({
+          inlineData: {
+            data: base64Data,
+            mimeType: file.type
+          }
+        })
+      }
     }
 
     if (parts.length === 0) {

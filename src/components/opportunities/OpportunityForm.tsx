@@ -43,6 +43,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
+  const [extractedLineItems, setExtractedLineItems] = useState<any[]>([])
   
   const [formData, setFormData] = useState<OpportunityFormData>({
     opportunity_name: initialData?.opportunity_name || "",
@@ -131,7 +132,25 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
       console.error(error)
       alert("Error saving opportunity: " + error.message)
     } else if (data && data[0]) {
-      router.push(`/opportunities/${data[0].id}`)
+      const newOptyId = data[0].id
+      
+      // Auto-save extracted line items
+      if (!isEdit && extractedLineItems.length > 0) {
+        const lineItemsToInsert = extractedLineItems.map(item => ({
+          opportunity_id: newOptyId,
+          pillar: item.pillar || 'Other',
+          product_name: item.product_name || 'Unknown Product',
+          specification: item.specification || '',
+          quantity: parseInt(item.quantity) || 1,
+          unit: 'unit',
+          unit_price: 0
+        }))
+        
+        const { error: liError } = await supabase.from('opportunity_line_items').insert(lineItemsToInsert)
+        if (liError) console.error("Error inserting auto-extracted line items:", liError)
+      }
+
+      router.push(`/opportunities/${newOptyId}`)
       router.refresh()
     }
   }
@@ -140,7 +159,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleDataExtracted = (extractedData: Partial<OpportunityFormData>) => {
+  const handleDataExtracted = (extractedData: Partial<OpportunityFormData> & { line_items?: any[] }) => {
     setFormData(prev => ({
       ...prev,
       opportunity_name: extractedData.opportunity_name || prev.opportunity_name,
@@ -155,13 +174,25 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
       competitors: extractedData.competitors || prev.competitors,
       decision_criteria: extractedData.decision_criteria || prev.decision_criteria,
     }))
+
+    if (extractedData.line_items && extractedData.line_items.length > 0) {
+      setExtractedLineItems(extractedData.line_items)
+    }
   }
 
   return (
     <div className="space-y-8">
       {/* Magic Auto-Fill Button area */}
       {!isEdit && (
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            {extractedLineItems.length > 0 && (
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 px-4 py-2 rounded-md text-sm font-medium border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+                <BrainCircuit className="h-4 w-4" />
+                {extractedLineItems.length} Line Items extracted and will be saved automatically.
+              </div>
+            )}
+          </div>
           <MagicImportDialog onDataExtracted={handleDataExtracted} />
         </div>
       )}
