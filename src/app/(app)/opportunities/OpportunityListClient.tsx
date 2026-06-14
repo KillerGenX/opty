@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Search, Building2, TrendingUp, Target, Award } from "lucide-react"
+import { Plus, Search, Building2, TrendingUp, Target, Award, Loader2 } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -20,6 +20,8 @@ import {
 export function OpportunityListClient({ initialData }: { initialData: any[] }) {
   const router = useRouter()
   const [search, setSearch] = useState("")
+  const [isNavigatingNew, setIsNavigatingNew] = useState(false)
+  const [navigatingRowId, setNavigatingRowId] = useState<string | null>(null)
 
 
 
@@ -51,6 +53,18 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
     }
   }
 
+  const getStageProgress = (stage: string) => {
+    switch (stage) {
+      case 'Prospecting': return { percent: 20, color: 'bg-slate-400 dark:bg-slate-500' }
+      case 'Qualification': return { percent: 40, color: 'bg-blue-500' }
+      case 'Proposal': return { percent: 60, color: 'bg-indigo-500' }
+      case 'Negotiation': return { percent: 80, color: 'bg-amber-500' }
+      case 'Won': return { percent: 100, color: 'bg-emerald-500' }
+      case 'Lost': return { percent: 100, color: 'bg-red-500' }
+      default: return { percent: 0, color: 'bg-slate-200 dark:bg-slate-700' }
+    }
+  }
+
   return (
     <div className="space-y-8">
 
@@ -66,11 +80,17 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
             className="pl-9 w-full bg-white dark:bg-zinc-950"
           />
         </div>
-        <Link href="/opportunities/new" className="w-full sm:w-auto">
-          <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
-            <Plus className="mr-2 h-4 w-4" /> New Opportunity
-          </Button>
-        </Link>
+        <Button 
+          className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+          disabled={isNavigatingNew}
+          onClick={() => {
+            setIsNavigatingNew(true)
+            router.push('/opportunities/new')
+          }}
+        >
+          {isNavigatingNew ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+          {isNavigatingNew ? "Loading..." : "New Opportunity"}
+        </Button>
       </div>
 
       {/* Data Table */}
@@ -82,7 +102,7 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
               <TableHead className="font-semibold w-[25%]">Customer</TableHead>
               <TableHead className="font-semibold text-right w-[15%]">Value (IDR)</TableHead>
               <TableHead className="font-semibold w-[10%]">Stage</TableHead>
-              <TableHead className="font-semibold w-[15%]">Health</TableHead>
+              <TableHead className="font-semibold w-[15%]">Progress</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -99,55 +119,59 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
               filteredData.map((opty) => (
                 <TableRow 
                   key={opty.id} 
-                  className="group cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-900/50 transition-colors"
-                  onClick={() => router.push(`/opportunities/${opty.id}`)}
+                  className={`group cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-900/50 transition-colors ${navigatingRowId === opty.id ? 'opacity-70 bg-slate-50 dark:bg-zinc-900/50' : ''}`}
+                  onClick={() => {
+                    setNavigatingRowId(opty.id)
+                    router.push(`/opportunities/${opty.id}`)
+                  }}
                 >
-                  <TableCell className="overflow-hidden">
+                  <TableCell className="align-top py-4">
                     <div 
-                      className="font-medium text-slate-900 dark:text-zinc-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors w-full truncate"
-                      title={opty.opportunity_name}
+                      className="font-medium text-slate-900 dark:text-zinc-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors break-words whitespace-normal"
                     >
                       {opty.opportunity_name}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1 w-full truncate">
+                    <div className="text-xs text-slate-500 mt-1 break-words whitespace-normal">
                       {opty.opportunity_type || 'Solution'}
                     </div>
                   </TableCell>
-                  <TableCell className="overflow-hidden">
-                    <div className="flex items-center gap-2 w-full">
-                      <div className="h-8 w-8 rounded bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                  <TableCell className="align-top py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 rounded bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 mt-0.5">
                         <Building2 className="h-4 w-4 text-slate-500" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div 
-                          className="font-medium text-sm w-full truncate"
-                          title={opty.customer_name}
+                          className="font-medium text-sm break-words whitespace-normal"
                         >
                           {opty.customer_name}
                         </div>
-                        <div className="text-xs text-slate-500 w-full truncate">
+                        <div className="text-xs text-slate-500 break-words whitespace-normal mt-0.5">
                           {opty.customer_industry}
                         </div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right font-medium text-slate-700 dark:text-zinc-300">
+                  <TableCell className="text-right font-medium text-slate-700 dark:text-zinc-300 align-top py-4">
                     {formatCurrency(opty.total_value || 0)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top py-4">
                     <Badge variant="outline" className={`${getStageColor(opty.stage)}`}>
                       {opty.stage}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
+                  <TableCell className="align-top py-4">
+                    <div className="flex items-center gap-3 mt-1.5">
                       <div className="w-full bg-slate-100 dark:bg-zinc-800 rounded-full h-1.5 max-w-[80px] overflow-hidden">
                         <div 
-                          className={`h-full rounded-full transition-all duration-500 ${opty.completeness_score >= 80 ? 'bg-emerald-500' : opty.completeness_score >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
-                          style={{ width: `${opty.completeness_score || 0}%` }}
+                          className={`h-full rounded-full transition-all duration-500 ${getStageProgress(opty.stage).color}`}
+                          style={{ width: `${getStageProgress(opty.stage).percent}%` }}
                         />
                       </div>
-                      <span className="text-xs font-medium text-slate-500 w-8">{opty.completeness_score || 0}%</span>
+                      <span className="text-xs font-medium text-slate-500 w-8">{getStageProgress(opty.stage).percent}%</span>
+                      {navigatingRowId === opty.id && (
+                        <Loader2 className="h-4 w-4 animate-spin text-emerald-600 ml-auto" />
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -1,8 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, Briefcase, FileText, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Briefcase, FileText, Settings, LogOut, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -17,8 +18,10 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   const handleSignOut = async () => {
+    setIsSigningOut(true)
     await supabase.auth.signOut()
     router.push("/login")
     router.refresh()
@@ -63,10 +66,11 @@ export function Sidebar() {
       <div className="p-4 border-t border-slate-100 dark:border-zinc-800">
         <button 
           onClick={handleSignOut}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-500 dark:text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-500"
+          disabled={isSigningOut}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-500 dark:text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <LogOut className="h-5 w-5" />
-          Sign Out
+          {isSigningOut ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
+          {isSigningOut ? "Signing out..." : "Sign Out"}
         </button>
       </div>
     </div>

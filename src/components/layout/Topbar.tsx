@@ -1,6 +1,7 @@
 "use client"
 
-import { Bell, Search, User } from "lucide-react"
+import { useState } from "react"
+import { Bell, Search, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,8 +20,11 @@ import { createClient } from "@/lib/supabase/client"
 export function Topbar() {
   const router = useRouter()
   const supabase = createClient()
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (e: React.MouseEvent) => {
+    e.preventDefault() // Prevent dropdown from closing immediately if we want to show loading, though it might still close.
+    setIsSigningOut(true)
     await supabase.auth.signOut()
     router.push("/login")
     router.refresh()
@@ -56,7 +60,17 @@ export function Topbar() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>Log out</DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive focus:text-destructive focus:bg-destructive/10" 
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+              >
+                {isSigningOut ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing out...</>
+                ) : (
+                  "Log out"
+                )}
+              </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
