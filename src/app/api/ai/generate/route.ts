@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { opportunityId, docType, referenceImage, additionalContext } = body
+    const { opportunityId, docType, referenceImage, additionalContext, previousDraft } = body
 
     if (!opportunityId || !docType) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 })
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     const prompt = getPrompt(docType, opty, lineItems || [])
 
     // Call Gemini
-    let htmlContent = await generateContent(prompt, referenceImage, additionalContext)
+    let htmlContent = await generateContent(prompt, referenceImage, additionalContext, previousDraft)
 
     if (docType === 'diagram') {
       // Clean up markdown blocks if the AI added them

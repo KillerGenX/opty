@@ -197,6 +197,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
           product_name: item.product_name || 'Unknown Product',
           specification: item.specification || '',
           quantity: item.quantity ? Number(item.quantity) : 1,
+          capacity: item.capacity || '',
           unit: item.unit || 'unit',
           mrc: item.mrc ? Number(item.mrc) : 0,
           otc: item.otc ? Number(item.otc) : 0,

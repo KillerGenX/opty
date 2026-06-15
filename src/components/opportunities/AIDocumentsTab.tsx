@@ -77,7 +77,8 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
           opportunityId, 
           docType: docId,
           additionalContext: options.additionalContext,
-          referenceImage: options.referenceImage
+          referenceImage: options.referenceImage,
+          previousDraft: docs[docId] ? docs[docId].content_html : undefined
         })
       })
       

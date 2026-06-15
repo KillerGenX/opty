@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -19,6 +19,33 @@ export function GenerateOptionsDialog({ open, onOpenChange, onGenerate, docTitle
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      if (!open || previewUrl) return
+      
+      const items = e.clipboardData?.items
+      if (!items) return
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const pastedFile = items[i].getAsFile()
+          if (pastedFile) {
+            setFile(pastedFile)
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              setPreviewUrl(reader.result as string)
+            }
+            reader.readAsDataURL(pastedFile)
+            break
+          }
+        }
+      }
+    }
+
+    window.addEventListener('paste', handlePaste as any)
+    return () => window.removeEventListener('paste', handlePaste as any)
+  }, [open, previewUrl])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -114,7 +141,7 @@ export function GenerateOptionsDialog({ open, onOpenChange, onGenerate, docTitle
               >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <UploadCloud className="w-8 h-8 mb-2 text-slate-400" />
-                  <p className="mb-2 text-sm text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                  <p className="mb-2 text-sm text-slate-500"><span className="font-semibold">Click to upload</span>, drag & drop, or <span className="font-bold text-emerald-600">Ctrl+V</span> to paste</p>
                   <p className="text-xs text-slate-500">PNG, JPG, or PDF (Max 5MB)</p>
                 </div>
                 <input 

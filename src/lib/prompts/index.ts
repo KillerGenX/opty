@@ -1,6 +1,8 @@
 export const generatePromptContext = (opty: any, lineItems: any[]) => {
+  const currentDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   return `
 [CONTEXT]
+- Current Date Today: ${currentDate}
 - Company: Enterprise Solutions Team
 - Opportunity Name: ${opty.opportunity_name}
 - SFA ID / CRM ID: ${opty.sfa_id || 'Not specified'}
