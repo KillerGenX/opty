@@ -146,3 +146,26 @@ If the document is a hardware/ICT procurement:
     throw error
   }
 }
+
+export async function generateConceptImage(prompt: string) {
+  try {
+    const response = await ai.models.generateImages({
+      model: 'imagen-3.0-generate-001',
+      prompt: prompt,
+      config: {
+        numberOfImages: 1,
+        outputMimeType: 'image/jpeg',
+        aspectRatio: '16:9'
+      }
+    });
+    
+    if (response.generatedImages && response.generatedImages.length > 0) {
+      const imgBytes = response.generatedImages[0].image?.imageBytes;
+      if (imgBytes) return imgBytes;
+    }
+    throw new Error('No image generated');
+  } catch (error) {
+    console.error('Error generating image from Google Gen AI:', error);
+    throw error;
+  }
+}

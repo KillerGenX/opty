@@ -18,7 +18,7 @@ interface AIDocumentsTabProps {
 
 const DOCUMENTS = [
   { id: 'design', title: 'ES Action Plan & Insights', desc: 'AI analysis, risk assessment, and recommended next steps.' },
-  { id: 'diagram', title: 'Architecture Diagram (Visual)', desc: 'Visual network/solution topology diagram.' },
+  { id: 'concept_art', title: 'Solution Concept Art', desc: 'AI-generated visual illustration of the proposed solution.' },
   { id: 'boq', title: 'Bill of Quantities (BoQ)', desc: 'Structured table of all line items and specifications.' },
   { id: 'bc', title: 'Business Case', desc: 'Justification, ROI, and financial overview.' },
   { id: 'timeline', title: 'Implementation Timeline', desc: 'Project phases and milestones.' },

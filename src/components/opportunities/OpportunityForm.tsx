@@ -184,8 +184,8 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     setLoading(false)
 
     if (error) {
-      console.error(error)
-      alert("Error saving opportunity: " + error.message)
+      console.error("SUPABASE ERROR:", error)
+      alert("Error saving opportunity:\n" + JSON.stringify(error, null, 2))
     } else if (data && data[0]) {
       const newOptyId = data[0].id
       
