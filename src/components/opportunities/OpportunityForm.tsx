@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Building2, FileText, Target, BrainCircuit, Loader2 } from "lucide-react"
+import { Building2, FileText, Target, BrainCircuit, Loader2, Plus, Trash2 } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MagicImportDialog } from "./MagicImportDialog"
 
 const FALLBACK_TYPES = ["Connectivity", "Cloud Solutions", "Cyber Security", "Managed Services", "IoT / Smart City"];
@@ -54,6 +55,8 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
   const [historicalCustomers, setHistoricalCustomers] = useState<any[]>([])
   const [masterSettings, setMasterSettings] = useState<any[]>([])
   
+  const [currentStep, setCurrentStep] = useState(1)
+  const [manualLineItems, setManualLineItems] = useState<any[]>([])
   useEffect(() => {
     // Fetch unique historical customers for autocomplete
     const fetchCustomers = async () => {
@@ -141,6 +144,24 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     return Math.min(score, 100);
   }
 
+  const handleAddManualItem = () => {
+    setManualLineItems(prev => [...prev, {
+      pillar: '', product_name: '', specification: '', quantity: 1, capacity: '', unit: 'unit', mrc: 0, otc: 0, contract_term: 1
+    }])
+  }
+
+  const handleRemoveManualItem = (idx: number) => {
+    setManualLineItems(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleManualItemChange = (idx: number, field: string, value: any) => {
+    setManualLineItems(prev => {
+      const newItems = [...prev]
+      newItems[idx] = { ...newItems[idx], [field]: value }
+      return newItems
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -189,27 +210,31 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     } else if (data && data[0]) {
       const newOptyId = data[0].id
       
-      // Auto-save extracted line items
-      if (!isEdit && extractedLineItems.length > 0) {
-        const lineItemsToInsert = extractedLineItems.map(item => ({
-          opportunity_id: newOptyId,
-          pillar: item.pillar || 'Other',
-          product_name: item.product_name || 'Unknown Product',
-          specification: item.specification || '',
-          quantity: item.quantity ? Number(item.quantity) : 1,
-          capacity: item.capacity || '',
-          unit: item.unit || 'unit',
-          mrc: item.mrc ? Number(item.mrc) : 0,
-          otc: item.otc ? Number(item.otc) : 0,
-          contract_term: item.contract_term ? Number(item.contract_term) : 1,
-          site_a: item.site_a || '',
-          site_b: item.site_b || '',
-          lastmile: item.lastmile || '',
-          cid: item.cid || ''
-        }))
+      // Save line items (both extracted by AI and manually added in Step 2)
+      if (!isEdit) {
+        const combinedLineItems = [...extractedLineItems, ...manualLineItems]
         
-        const { error: liError } = await supabase.from('opportunity_line_items').insert(lineItemsToInsert)
-        if (liError) console.error("Error inserting auto-extracted line items:", liError)
+        if (combinedLineItems.length > 0) {
+          const lineItemsToInsert = combinedLineItems.map(item => ({
+            opportunity_id: newOptyId,
+            pillar: item.pillar || 'Other',
+            product_name: item.product_name || 'Unknown Product',
+            specification: item.specification || '',
+            quantity: item.quantity ? Number(item.quantity) : 1,
+            capacity: item.capacity || '',
+            unit: item.unit || 'unit',
+            mrc: item.mrc ? Number(item.mrc) : 0,
+            otc: item.otc ? Number(item.otc) : 0,
+            contract_term: item.contract_term ? Number(item.contract_term) : 1,
+            site_a: item.site_a || '',
+            site_b: item.site_b || '',
+            lastmile: item.lastmile || '',
+            cid: item.cid || ''
+          }))
+          
+          const { error: liError } = await supabase.from('opportunity_line_items').insert(lineItemsToInsert)
+          if (liError) console.error("Error inserting line items:", liError)
+        }
       }
 
       router.push(`/opportunities/${newOptyId}`)
@@ -284,6 +309,8 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
+      {currentStep === 1 && (
+        <div className="space-y-8">
       {/* SECTION 1: Pipeline Info */}
       <Card className="shadow-sm border-slate-200/60 dark:border-zinc-800">
         <CardHeader className="border-b border-slate-100 dark:border-zinc-800/50 bg-slate-50/50 dark:bg-zinc-900/50">
@@ -563,12 +590,146 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
 
         </CardContent>
       </Card>
+      </div>
+      )}
+
+      {!isEdit && currentStep === 2 && (
+        <div className="space-y-8">
+          <Card className="shadow-sm border-emerald-200/60 dark:border-emerald-900/50">
+            <CardHeader className="border-b border-emerald-100 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-900/20">
+              <CardTitle className="text-emerald-900 dark:text-emerald-100">Step 2: Line Items (Products & Pricing)</CardTitle>
+              <CardDescription className="text-emerald-700 dark:text-emerald-400">Add products, capacity, MRC, and OTC.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" type="button" onClick={handleAddManualItem}>
+                    <Plus className="h-4 w-4 mr-2" /> Add Item
+                  </Button>
+                </div>
+
+                <div className="rounded-md border bg-card overflow-x-auto">
+                  <Table className="min-w-[800px]">
+                    <TableHeader className="bg-emerald-50/50 dark:bg-emerald-900/20">
+                      <TableRow>
+                        <TableHead className="w-[20%]">Pillar & Product</TableHead>
+                        <TableHead className="w-[20%]">Spec & Capacity</TableHead>
+                        <TableHead className="w-[15%]">Qty & Unit</TableHead>
+                        <TableHead className="w-[20%]">Pricing</TableHead>
+                        <TableHead className="w-[15%]">Contract & Site</TableHead>
+                        <TableHead className="w-[10%]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {manualLineItems.length === 0 && extractedLineItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center h-24 text-slate-500">
+                            No items added. Click "+ Add Item" to manually add products.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        <>
+                          {/* Render AI Extracted Items (Read-only Preview) */}
+                          {extractedLineItems.map((item, idx) => (
+                            <TableRow key={`ai-${idx}`} className="align-top bg-emerald-50/20 dark:bg-emerald-950/10 opacity-80">
+                              <TableCell className="p-2">
+                                <div className="h-8 mb-2 flex items-center px-3 text-xs border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">{item.pillar || 'Unknown Pillar'} <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 rounded">AI</span></div>
+                                <div className="h-8 flex items-center px-3 text-xs font-medium border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-600">{item.product_name || '-'}</div>
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <div className="min-h-[32px] text-xs p-2 mb-2 border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">{item.specification || '-'}</div>
+                                <div className="h-8 flex items-center px-3 text-xs border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">{item.capacity || '-'}</div>
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <div className="h-8 mb-2 flex items-center px-3 text-xs border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">{item.quantity || 1}</div>
+                                <div className="h-8 flex items-center px-3 text-xs border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">{item.unit || '-'}</div>
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <div className="h-8 mb-2 flex items-center px-3 text-xs border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">Rp {Number(item.mrc || 0).toLocaleString()}</div>
+                                <div className="h-8 flex items-center px-3 text-xs border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">Rp {Number(item.otc || 0).toLocaleString()}</div>
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <div className="h-8 mb-2 flex items-center px-3 text-xs border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">{item.contract_term || 1} Mo</div>
+                                <div className="h-8 flex items-center px-3 text-xs border rounded-md bg-slate-50 dark:bg-zinc-900 text-slate-500">{item.site_a || '-'}</div>
+                              </TableCell>
+                              <TableCell className="p-2 text-center text-xs text-emerald-600 flex items-center justify-center h-full pt-6">
+                                Auto-saved
+                              </TableCell>
+                            </TableRow>
+                          ))}
+
+                          {/* Render Manual Items (Editable) */}
+                          {manualLineItems.map((item, idx) => (
+                            <TableRow key={`manual-${idx}`} className="align-top">
+                              <TableCell className="p-2">
+                                <Select value={item.pillar} onValueChange={(v) => handleManualItemChange(idx, 'pillar', v)}>
+                                  <SelectTrigger className="h-8 mb-2 text-xs"><SelectValue placeholder="Pillar" /></SelectTrigger>
+                                  <SelectContent>
+                                    {getOptions('PILLAR', ['Connectivity', 'ICT & Cloud', 'Managed Service & Security', 'IoT & Digital']).map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                                <Input className="h-8 text-xs font-medium" placeholder="Product name" value={item.product_name} onChange={e => handleManualItemChange(idx, 'product_name', e.target.value)} />
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <Textarea className="min-h-[32px] text-xs p-2 mb-2" placeholder="Specs..." value={item.specification} onChange={e => handleManualItemChange(idx, 'specification', e.target.value)} />
+                                <Input className="h-8 text-xs" placeholder="Capacity (e.g. 100 Mbps)" value={item.capacity} onChange={e => handleManualItemChange(idx, 'capacity', e.target.value)} />
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <Input type="number" className="h-8 mb-2 text-xs" placeholder="Qty" value={item.quantity || ''} onChange={e => handleManualItemChange(idx, 'quantity', e.target.value)} />
+                                <Input className="h-8 text-xs" placeholder="Unit (e.g. circuit)" value={item.unit} onChange={e => handleManualItemChange(idx, 'unit', e.target.value)} />
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <div className="relative mb-2">
+                                  <span className="absolute left-2 top-1.5 text-xs text-slate-400">Rp</span>
+                                  <Input type="number" className="h-8 text-xs pl-7" placeholder="MRC" value={item.mrc || ''} onChange={e => handleManualItemChange(idx, 'mrc', e.target.value)} />
+                                </div>
+                                <div className="relative">
+                                  <span className="absolute left-2 top-1.5 text-xs text-slate-400">Rp</span>
+                                  <Input type="number" className="h-8 text-xs pl-7" placeholder="OTC" value={item.otc || ''} onChange={e => handleManualItemChange(idx, 'otc', e.target.value)} />
+                                </div>
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <Input type="number" className="h-8 mb-2 text-xs" placeholder="Contract (Mo)" value={item.contract_term || ''} onChange={e => handleManualItemChange(idx, 'contract_term', e.target.value)} />
+                                <Input className="h-8 text-xs" placeholder="Site A" value={item.site_a} onChange={e => handleManualItemChange(idx, 'site_a', e.target.value)} />
+                              </TableCell>
+                              <TableCell className="p-2 text-right">
+                                <Button variant="ghost" size="icon" type="button" onClick={() => handleRemoveManualItem(idx)} className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50"><Trash2 className="h-4 w-4" /></Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="flex justify-end gap-4 pb-12">
-        <Button variant="outline" type="button" onClick={() => router.back()} className="w-32">Cancel</Button>
-        <Button type="submit" disabled={loading} className="w-48 bg-emerald-700 hover:bg-emerald-800 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700">
-          {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : (isEdit ? "Save Changes" : "Create Opportunity")}
-        </Button>
+        {currentStep === 1 ? (
+          <>
+            <Button variant="outline" type="button" onClick={() => router.back()} className="w-32">Cancel</Button>
+            {isEdit ? (
+              <Button type="submit" disabled={loading} className="w-48 bg-emerald-700 hover:bg-emerald-800 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700">
+                {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Changes"}
+              </Button>
+            ) : (
+              <Button type="button" onClick={(e) => { e.preventDefault(); setCurrentStep(2); }} className="w-48 bg-emerald-700 hover:bg-emerald-800 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700">
+                Next: Add Line Items
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Button variant="outline" type="button" onClick={(e) => { e.preventDefault(); setCurrentStep(1); }} className="w-32">Back to Step 1</Button>
+            <Button type="submit" disabled={loading} className="w-48 bg-emerald-700 hover:bg-emerald-800 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700">
+              {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Create Opportunity"}
+            </Button>
+          </>
+        )}
       </div>
     </form>
     </div>

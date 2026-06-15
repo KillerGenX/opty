@@ -4,10 +4,10 @@ import { OpportunityListClient } from "./OpportunityListClient"
 export default async function OpportunitiesPage() {
   const supabase = await createClient()
   
-  // Fetch opportunities
+  // Fetch opportunities with line items to calculate MRC, OTC, TCV on the fly
   const { data: opportunities, error } = await supabase
     .from('opportunities')
-    .select('*')
+    .select('*, opportunity_line_items(*)')
     .order('created_at', { ascending: false })
 
   // Safely fallback to empty array if error

@@ -75,14 +75,14 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input 
-            placeholder="Search by SFA ID, Quote ID, customer, or deal name..." 
+          <Input
+            placeholder="Search by SFA ID, Quote ID, customer, or deal name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 w-full bg-white dark:bg-zinc-950"
           />
         </div>
-        <Button 
+        <Button
           className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
           disabled={isNavigatingNew}
           onClick={() => {
@@ -100,11 +100,11 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
         <Table className="table-fixed w-full">
           <TableHeader className="bg-slate-50/50 dark:bg-zinc-900/50">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="font-semibold w-[35%]">Opportunity</TableHead>
-              <TableHead className="font-semibold w-[25%]">Customer</TableHead>
-              <TableHead className="font-semibold text-right w-[15%]">Value (IDR)</TableHead>
-              <TableHead className="font-semibold w-[10%]">Stage</TableHead>
-              <TableHead className="font-semibold w-[15%]">Progress</TableHead>
+              <TableHead className="w-[30%]">Opportunity</TableHead>
+              <TableHead className="w-[25%]">Customer</TableHead>
+              <TableHead className="w-[15%] text-right">Value</TableHead>
+              <TableHead className="w-[15%]">Stage</TableHead>
+              <TableHead className="w-[15%]">Progress</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -119,8 +119,8 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
               </TableRow>
             ) : (
               filteredData.map((opty) => (
-                <TableRow 
-                  key={opty.id} 
+                <TableRow
+                  key={opty.id}
                   className={`group cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-900/50 transition-colors ${navigatingRowId === opty.id ? 'opacity-70 bg-slate-50 dark:bg-zinc-900/50' : ''}`}
                   onClick={() => {
                     setNavigatingRowId(opty.id)
@@ -128,7 +128,7 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
                   }}
                 >
                   <TableCell className="align-top py-4">
-                    <div 
+                    <div
                       className="font-medium text-slate-900 dark:text-zinc-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors break-words whitespace-normal"
                     >
                       {opty.opportunity_name}
@@ -155,7 +155,7 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
                         <Building2 className="h-4 w-4 text-slate-500" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div 
+                        <div
                           className="font-medium text-sm break-words whitespace-normal"
                         >
                           {opty.customer_name}
@@ -166,8 +166,37 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right font-medium text-slate-700 dark:text-zinc-300 align-top py-4">
-                    {formatCurrency(opty.total_value || 0)}
+                  <TableCell className="text-right align-top py-4">
+                    {(() => {
+                      let optyMrc = 0;
+                      let optyOtc = 0;
+                      let optyTcv = 0;
+                      let optyTerm = 0;
+                      if (opty.opportunity_line_items && opty.opportunity_line_items.length > 0) {
+                        opty.opportunity_line_items.forEach((item: any) => {
+                          const qty = item.quantity || 1;
+                          optyMrc += (item.mrc || 0) * qty;
+                          optyOtc += (item.otc || 0) * qty;
+                          optyTcv += item.total_price || 0;
+                          if ((item.mrc || 0) > 0 && (item.contract_term || 0) > optyTerm) {
+                            optyTerm = item.contract_term;
+                          }
+                        });
+                      }
+                      const displayTcv = optyTcv > 0 ? optyTcv : Number(opty.total_value || 0);
+
+                      return (
+                        <div className="flex flex-col items-end">
+                          <div className="font-bold text-slate-900 dark:text-zinc-100">{formatCurrency(displayTcv)}</div>
+                          {(optyMrc > 0 || optyOtc > 0) && (
+                            <div className="flex flex-col mt-1 text-[10px] text-slate-500 gap-0.5 text-right whitespace-nowrap">
+                              {optyMrc > 0 && <span>MRC: {formatCurrency(optyMrc)} {optyTerm > 0 ? `x ${optyTerm}` : ''}</span>}
+                              {optyOtc > 0 && <span>OTC: {formatCurrency(optyOtc)}</span>}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </TableCell>
                   <TableCell className="align-top py-4">
                     <Badge variant="outline" className={`${getStageColor(opty.stage)}`}>
@@ -177,7 +206,7 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
                   <TableCell className="align-top py-4">
                     <div className="flex items-center gap-3 mt-1.5">
                       <div className="w-full bg-slate-100 dark:bg-zinc-800 rounded-full h-1.5 max-w-[80px] overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full rounded-full transition-all duration-500 ${getStageProgress(opty.stage).color}`}
                           style={{ width: `${getStageProgress(opty.stage).percent}%` }}
                         />
