@@ -3,6 +3,9 @@ export const generatePromptContext = (opty: any, lineItems: any[]) => {
 [CONTEXT]
 - Company: Enterprise Solutions Team
 - Opportunity Name: ${opty.opportunity_name}
+- SFA ID / CRM ID: ${opty.sfa_id || 'Not specified'}
+- Quote ID: ${opty.quote_id || 'Not specified'}
+- Request Type: ${opty.request_type || 'Not specified'}
 - Customer Name: ${opty.customer_name}
 - Customer Industry: ${opty.customer_industry || '-'}
 - Opportunity Stage: ${opty.stage}
@@ -19,7 +22,7 @@ export const generatePromptContext = (opty: any, lineItems: any[]) => {
 - Decision Criteria: ${opty.decision_criteria || 'Not specified'}
 
 [LINE ITEMS (PRODUCTS/SERVICES)]
-${lineItems.map(item => `- [${item.pillar}] ${item.product_name} | Spec: ${item.specification || '-'} | Qty: ${item.quantity} ${item.unit}`).join('\n')}
+${lineItems.map(item => `- [${item.pillar}] ${item.product_name} | Qty: ${item.quantity} ${item.unit} | MRC: Rp${item.mrc || 0} | OTC: Rp${item.otc || 0} | Term: ${item.contract_term || 1} Mos | Site A: ${item.site_a || '-'} | Site B: ${item.site_b || '-'} | Lastmile: ${item.lastmile || '-'} | CID: ${item.cid || '-'} | Spec: ${item.specification || '-'}`).join('\n')}
 
 [OUTPUT INSTRUCTIONS]
 - You are a senior Enterprise Presales / Solution Architect.

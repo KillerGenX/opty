@@ -22,6 +22,9 @@ export type OpportunityFormData = {
   stage: string;
   probability: string;
   expected_close_date: string;
+  sfa_id: string;
+  quote_id: string;
+  request_type: string;
   
   customer_name: string;
   customer_industry: string;
@@ -99,6 +102,9 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     stage: initialData?.stage || "Prospecting",
     probability: initialData?.probability?.toString() || "",
     expected_close_date: initialData?.expected_close_date || "",
+    sfa_id: initialData?.sfa_id || "",
+    quote_id: initialData?.quote_id || "",
+    request_type: initialData?.request_type || "",
     
     customer_name: initialData?.customer_name || "",
     customer_industry: initialData?.customer_industry || "",
@@ -120,6 +126,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     const weights: Record<keyof OpportunityFormData, number> = {
       opportunity_name: 5, customer_name: 5, stage: 5,
       opportunity_type: 5, probability: 5, expected_close_date: 5,
+      sfa_id: 0, quote_id: 0, request_type: 0,
       customer_industry: 5, customer_segment: 5, customer_pic: 5, customer_contact: 5, customer_address: 5,
       scope_of_work: 15, technical_requirements: 10, pain_points: 10,
       constraints: 5, competitors: 2, decision_criteria: 2
@@ -191,7 +198,13 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
           specification: item.specification || '',
           quantity: item.quantity ? Number(item.quantity) : 1,
           unit: item.unit || 'unit',
-          unit_price: item.unit_price ? Number(item.unit_price) : 0
+          mrc: item.mrc ? Number(item.mrc) : 0,
+          otc: item.otc ? Number(item.otc) : 0,
+          contract_term: item.contract_term ? Number(item.contract_term) : 1,
+          site_a: item.site_a || '',
+          site_b: item.site_b || '',
+          lastmile: item.lastmile || '',
+          cid: item.cid || ''
         }))
         
         const { error: liError } = await supabase.from('opportunity_line_items').insert(lineItemsToInsert)
@@ -229,6 +242,9 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
       ...prev,
       opportunity_name: extractedData.opportunity_name || prev.opportunity_name,
       opportunity_type: extractedData.opportunity_type || prev.opportunity_type,
+      sfa_id: extractedData.sfa_id || prev.sfa_id,
+      quote_id: extractedData.quote_id || prev.quote_id,
+      request_type: extractedData.request_type || prev.request_type,
       customer_name: extractedData.customer_name || prev.customer_name,
       customer_segment: extractedData.customer_segment || prev.customer_segment,
       customer_industry: extractedData.customer_industry || prev.customer_industry,
@@ -277,7 +293,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
           <CardDescription>Essential details for tracking this deal in the pipeline.</CardDescription>
         </CardHeader>
         <CardContent className="p-6 grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor="opportunity_name" className="text-slate-700 dark:text-zinc-300">Opportunity Name <span className="text-red-500">*</span></Label>
             <Input 
               id="opportunity_name" required 
@@ -285,6 +301,28 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
               value={formData.opportunity_name}
               onChange={(e) => handleChange("opportunity_name", e.target.value)}
               className="bg-white dark:bg-zinc-950"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sfa_id" className="text-slate-700 dark:text-zinc-300">SFA ID</Label>
+            <Input 
+              id="sfa_id" 
+              placeholder="e.g. 006Mg00000NsVWDIA3"
+              value={formData.sfa_id}
+              onChange={(e) => handleChange("sfa_id", e.target.value)}
+              className="bg-white dark:bg-zinc-950 font-mono text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="quote_id" className="text-slate-700 dark:text-zinc-300">Quote ID</Label>
+            <Input 
+              id="quote_id" 
+              placeholder="e.g. 2-810786636407"
+              value={formData.quote_id}
+              onChange={(e) => handleChange("quote_id", e.target.value)}
+              className="bg-white dark:bg-zinc-950 font-mono text-sm"
             />
           </div>
           
@@ -298,6 +336,25 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
                         {typesList.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                         {formData.opportunity_type && !typesList.includes(formData.opportunity_type) && (
                           <SelectItem value={formData.opportunity_type}>{formData.opportunity_type} (AI)</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="request_type" className="text-slate-700 dark:text-zinc-300">Request Type</Label>
+                    <Select value={formData.request_type} onValueChange={(val) => handleChange("request_type", val || "")}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select request type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="New Installation">New Installation</SelectItem>
+                        <SelectItem value="Upgrade">Upgrade</SelectItem>
+                        <SelectItem value="Downgrade">Downgrade</SelectItem>
+                        <SelectItem value="Relocation">Relocation</SelectItem>
+                        <SelectItem value="Termination">Termination</SelectItem>
+                        {formData.request_type && !["New Installation", "Upgrade", "Downgrade", "Relocation", "Termination"].includes(formData.request_type) && (
+                          <SelectItem value={formData.request_type}>{formData.request_type} (AI)</SelectItem>
                         )}
                       </SelectContent>
                     </Select>

@@ -13,6 +13,7 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [activeTab, setActiveTab] = useState("text")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,6 +25,17 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      const pastedFiles = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/') || f.type === 'application/pdf')
+      if (pastedFiles.length > 0) {
+        setFiles(prev => [...prev, ...pastedFiles])
+        setError("")
+        setActiveTab("file")
+      }
+    }
   }
 
   const handleExtract = async () => {
@@ -70,7 +82,7 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
       >
         <Sparkles className="mr-2 h-4 w-4" /> Magic Auto-Fill
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[550px] max-h-[85vh] flex flex-col bg-slate-50 dark:bg-zinc-950">
+      <DialogContent className="sm:max-w-[550px] max-h-[85vh] flex flex-col bg-slate-50 dark:bg-zinc-950" onPaste={handlePaste}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl text-emerald-800 dark:text-emerald-400">
             <Sparkles className="h-5 w-5" /> Magic AI Extraction
@@ -81,7 +93,7 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
         </DialogHeader>
 
         <div className="mt-4 flex-1 overflow-y-auto pr-2">
-          <Tabs defaultValue="text" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="text"><FileText className="h-4 w-4 mr-2" /> Paste Text</TabsTrigger>
               <TabsTrigger value="file"><Upload className="h-4 w-4 mr-2" /> Upload File</TabsTrigger>
@@ -133,7 +145,7 @@ export function MagicImportDialog({ onDataExtracted }: { onDataExtracted: (data:
                       <FileText className="h-8 w-8" />
                       <ImageIcon className="h-8 w-8" />
                     </div>
-                    <p className="font-medium text-slate-700 dark:text-zinc-300">Click to upload PDFs or Images</p>
+                    <p className="font-medium text-slate-700 dark:text-zinc-300">Click to upload or Paste (Ctrl+V) Images</p>
                     <p className="text-xs text-slate-500 mt-2">Supports .pdf, .png, .jpg (Multiple files allowed)</p>
                   </>
                 )}

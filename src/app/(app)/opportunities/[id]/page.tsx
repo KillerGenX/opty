@@ -108,6 +108,18 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                     <div className="text-slate-900 dark:text-zinc-100">{opty.opportunity_type || '-'}</div>
                   </div>
                   <div>
+                    <div className="text-sm font-medium text-slate-500 dark:text-zinc-400">Request Type</div>
+                    <div className="text-slate-900 dark:text-zinc-100">{opty.request_type || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-slate-500 dark:text-zinc-400">SFA ID</div>
+                    <div className="text-slate-900 dark:text-zinc-100 font-mono">{opty.sfa_id || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-slate-500 dark:text-zinc-400">Quote ID</div>
+                    <div className="text-slate-900 dark:text-zinc-100 font-mono">{opty.quote_id || '-'}</div>
+                  </div>
+                  <div>
                     <div className="text-sm font-medium text-slate-500 dark:text-zinc-400">Stage</div>
                     <div className="text-slate-900 dark:text-zinc-100">{opty.stage}</div>
                   </div>
@@ -115,7 +127,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                     <div className="text-sm font-medium text-slate-500 dark:text-zinc-400">Probability</div>
                     <div className="text-slate-900 dark:text-zinc-100">{opty.probability ? `${opty.probability}%` : '-'}</div>
                   </div>
-                  <div>
+                  <div className="col-span-2 md:col-span-1">
                     <div className="text-sm font-medium text-slate-500 dark:text-zinc-400">Expected Close</div>
                     <div className="text-slate-900 dark:text-zinc-100">{opty.expected_close_date || '-'}</div>
                   </div>

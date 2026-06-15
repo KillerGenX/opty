@@ -63,6 +63,9 @@ Extract the following information and output strictly in JSON format matching th
 {
   "opportunity_name": "String (Give a concise title for the project)",
   "opportunity_type": "String (Classify the main solution type into one of these if possible: ${typesStr}, or use a custom one)",
+  "request_type": "String (e.g., New Installation, Upgrade, Downgrade, Relocation, Termination)",
+  "sfa_id": "String (Salesforce ID or CRM ID if present)",
+  "quote_id": "String (Quotation ID or reference if present)",
   "customer_name": "String (Name of the client company)",
   "customer_industry": "String (Classify into one of these if possible: ${industriesStr}, or use custom)",
   "customer_segment": "String (Classify into one of these if possible: ${segmentsStr}, or use custom)",
@@ -75,26 +78,33 @@ Extract the following information and output strictly in JSON format matching th
   "pain_points": "String (What problem are they solving?)",
   "constraints": "String (Budget, timeline, deployment risks)",
   "competitors": "String (Any mentioned competitors)",
+  "decision_criteria": "String (Any decision criteria)",
   "line_items": [
     {
       "pillar": "String (Classify into one of these if possible: ${pillarsStr})",
       "product_name": "String (Best guess of the product/service name, e.g. MPLS L2, DIA, etc.)",
-      "specification": "String (Technical details, SLA, or term. For telco links, include Site A, Site B, and OTC details here)",
-      "quantity": "Number (For telco links, this is the Bandwidth numeric value, e.g. 100 for 100 Mbps)",
+      "specification": "String (General technical details, SLA, or term.)",
+      "quantity": "Number (For telco links, this is the Bandwidth numeric value, e.g. 100 for 100 Mbps. If unknown, use 1)",
       "unit": "String (e.g. Mbps, Gbps, unit, node, user)",
-      "unit_price": "Number (Calculate the price per unit. If MRC is provided for a telco link, unit_price = MRC / Bandwidth. Do not format with commas/periods, just raw number.)"
+      "mrc": "Number (Monthly Recurring Charge. Do not format with commas/periods, just raw number)",
+      "otc": "Number (One Time Charge. Do not format with commas/periods, just raw number)",
+      "contract_term": "Number (Duration in months, e.g. 24 for 2 years)",
+      "site_a": "String (Origin site name or address/coordinates)",
+      "site_b": "String (Destination site name or address/coordinates)",
+      "lastmile": "String (Last mile media details, e.g., FO, VSAT, Radio)",
+      "cid": "String (Circuit ID if mentioned)"
     }
   ]
 }
 If a field is not mentioned or cannot be inferred, leave it as an empty string "". For line_items, if no products/services are found, return an empty array []. Do NOT invent information.
 
 SPECIAL RULE FOR TELCO ORDERS (MPLS, DIA, Internet, etc.):
-If the document is a Telco link request containing "Bandwidth" and "MRC":
-1. Set "product_name" to the Service name.
-2. Set "quantity" to the numeric value of the Bandwidth (e.g., if "100 Mbps", quantity is 100).
-3. Set "unit" to the bandwidth metric (e.g., "Mbps").
-4. Calculate "unit_price" by dividing the MRC value by the Bandwidth value (MRC / BW). For example, if MRC is 2.000.000 and BW is 100, unit_price is 20000.
-5. Combine Site A, Site B, OTC (One Time Charge), and other notes into the "specification" field.
+If the document is a Telco link request:
+1. Extract the SFA ID, Quote ID, and Request Type.
+2. For line items, set "quantity" to the numeric Bandwidth value (e.g. "1000" if 1000 Mbps).
+3. Set "mrc" directly to the MRC price and "otc" directly to the OTC price. Do NOT divide or calculate anything.
+4. Set "contract_term" to the numeric month value (e.g., if "2 Tahun", set to 24).
+5. Extract Site A, Site B, Lastmile, and CID explicitly into their own fields.
 `
 
   try {

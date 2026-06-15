@@ -32,7 +32,9 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
       return (
         opty.opportunity_name?.toLowerCase().includes(searchLower) ||
         opty.customer_name?.toLowerCase().includes(searchLower) ||
-        opty.customer_industry?.toLowerCase().includes(searchLower)
+        opty.customer_industry?.toLowerCase().includes(searchLower) ||
+        opty.sfa_id?.toLowerCase().includes(searchLower) ||
+        opty.quote_id?.toLowerCase().includes(searchLower)
       )
     })
   }, [initialData, search])
@@ -74,7 +76,7 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input 
-            placeholder="Search deals, customers, or industry..." 
+            placeholder="Search by SFA ID, Quote ID, customer, or deal name..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 w-full bg-white dark:bg-zinc-950"
@@ -131,8 +133,20 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
                     >
                       {opty.opportunity_name}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1 break-words whitespace-normal">
-                      {opty.opportunity_type || 'Solution'}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <div className="text-xs text-slate-500 font-medium">
+                        {opty.opportunity_type || 'Solution'}
+                      </div>
+                      {opty.sfa_id && (
+                        <div className="text-[10px] text-slate-500 font-mono bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
+                          SFA: {opty.sfa_id}
+                        </div>
+                      )}
+                      {opty.quote_id && (
+                        <div className="text-[10px] text-slate-500 font-mono bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
+                          Quote: {opty.quote_id}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="align-top py-4">

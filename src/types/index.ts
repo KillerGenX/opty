@@ -17,6 +17,10 @@ export interface Opportunity {
   created_by: string
   owner_id: string
   
+  sfa_id: string | null
+  quote_id: string | null
+  request_type: string | null
+  
   customer_name: string
   customer_segment: string | null
   customer_industry: string | null
@@ -53,9 +57,14 @@ export interface LineItem {
   specification: string | null
   quantity: number
   unit: string | null
-  unit_price: number
+  mrc: number
+  otc: number
   total_price: number
   contract_term: number | null
+  site_a: string | null
+  site_b: string | null
+  lastmile: string | null
+  cid: string | null
   notes: string | null
   sort_order: number | null
   created_at: string
