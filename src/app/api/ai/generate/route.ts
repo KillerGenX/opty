@@ -40,11 +40,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Error fetching line items' }, { status: 500 })
     }
 
+    // Fetch chat history for Two-Way Knowledge Sync (CAG Approach)
+    const { data: chatHistory } = await supabase
+      .from('opportunity_chats')
+      .select('role, content, created_at, user_email')
+      .eq('opportunity_id', opportunityId)
+      .order('created_at', { ascending: true })
+
+    let enhancedContext = additionalContext || ""
+    if (chatHistory && chatHistory.length > 0) {
+      enhancedContext += "\n\n[CRITICAL: OPPORTUNITY CHAT HISTORY (CAG)]\nThe user has had conversations with an AI assistant about this opportunity. You MUST read this chat history to understand any updates, budget cuts, meeting notes, or specific instructions discussed recently. Incorporate this knowledge into the document you are generating.\n"
+      chatHistory.forEach(chat => {
+        const sender = chat.role === 'user' ? chat.user_email || 'User' : 'Opty AI'
+        enhancedContext += `\n[${new Date(chat.created_at).toLocaleString()}] ${sender}:\n${chat.content}\n`
+      })
+    }
+
     // Generate prompt
     const prompt = getPrompt(docType, opty, lineItems || [])
 
     // Call Gemini
-    let htmlContent = await generateContent(prompt, referenceImage, additionalContext, previousDraft)
+    let htmlContent = await generateContent(prompt, referenceImage, enhancedContext, previousDraft)
 
     if (docType === 'concept_art') {
       try {

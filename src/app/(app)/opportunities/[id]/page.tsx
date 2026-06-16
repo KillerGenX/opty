@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LineItemsEditor } from "@/components/opportunities/LineItemsEditor"
 import { AIDocumentsTab } from "@/components/opportunities/AIDocumentsTab"
+import { AIChatTab } from "@/components/opportunities/AIChatTab"
 import { OpportunityHeaderActions } from "@/components/opportunities/OpportunityHeaderActions"
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -57,10 +58,11 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="line_items">Line Items</TabsTrigger>
           <TabsTrigger value="ai_docs">AI Documents</TabsTrigger>
+          <TabsTrigger value="ai_chat" className="text-emerald-600 dark:text-emerald-400 font-medium">AI Chat</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         
@@ -214,9 +216,21 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
         {/* Tab Content: AI Docs */}
         <TabsContent value="ai_docs" className="mt-6">
-          <AIDocumentsTab opportunityId={opty.id} opportunityName={opty.opportunity_name} completenessScore={opty.completeness_score} />
+          <AIDocumentsTab 
+            opportunityId={opty.id} 
+            opportunityName={opty.opportunity_name}
+            completenessScore={50} // Can be calculated similar to overview
+          />
         </TabsContent>
-        
+
+        {/* Tab Content: AI Chat Assistant */}
+        <TabsContent value="ai_chat" className="mt-6">
+          <AIChatTab 
+            opportunityId={opty.id} 
+            opportunityName={opty.opportunity_name}
+          />
+        </TabsContent>
+
         {/* Tab Content: History (Placeholder) */}
         <TabsContent value="history" className="mt-6">
           <Card>
