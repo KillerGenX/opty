@@ -95,11 +95,11 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
     switch (stepInfo.id) {
       case 'greeting':
         return (
-          <div className="flex flex-col items-center justify-center text-center h-full max-w-2xl mx-auto space-y-6">
-            <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full flex items-center justify-center mb-4">
-              <Zap className="w-12 h-12" />
+          <div className="flex flex-col items-center justify-center text-center h-full max-w-2xl mx-auto space-y-4">
+            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full flex items-center justify-center mb-2">
+              <Zap className="w-8 h-8" />
             </div>
-            <h3 className="text-2xl md:text-3xl font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
+            <h3 className="text-lg md:text-xl font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
               "{data.greeting}"
             </h3>
             <p className="text-slate-500 font-medium">Asisten Solution Engineer Anda siap membantu.</p>
@@ -108,13 +108,13 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
       
       case 'insights':
         return (
-          <div className="grid gap-4 md:gap-6 max-w-3xl mx-auto">
+          <div className="grid gap-3 md:gap-4 max-w-3xl mx-auto">
             {data.insights.map((text, i) => (
-              <div key={i} className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30 shadow-sm flex gap-4 items-start group hover:shadow-md hover:-translate-y-1 transition-all">
+              <div key={i} className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30 shadow-sm flex gap-3 items-start group hover:shadow-md hover:-translate-y-1 transition-all">
                 <div className="bg-blue-100 text-blue-600 dark:bg-blue-900/50 p-2 rounded-full shrink-0 group-hover:scale-110 transition-transform">
-                  <CheckCircle2 className="w-6 h-6" />
+                  <CheckCircle2 className="w-4 h-4" />
                 </div>
-                <p className="text-slate-700 dark:text-slate-300 text-lg pt-0.5">{text}</p>
+                <p className="text-slate-700 dark:text-slate-300 text-sm pt-0.5">{text}</p>
               </div>
             ))}
           </div>
@@ -122,14 +122,14 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
       
       case 'risks':
         return (
-          <div className="grid gap-4 md:gap-6 max-w-3xl mx-auto">
+          <div className="grid gap-3 md:gap-4 max-w-3xl mx-auto">
             {data.risks.map((text, i) => (
-              <div key={i} className="bg-rose-50/80 dark:bg-rose-950/30 backdrop-blur-md p-6 rounded-2xl border border-rose-200 dark:border-rose-900/50 shadow-sm flex gap-4 items-start relative overflow-hidden group hover:shadow-md transition-all">
+              <div key={i} className="bg-rose-50/80 dark:bg-rose-950/30 backdrop-blur-md p-4 rounded-2xl border border-rose-200 dark:border-rose-900/50 shadow-sm flex gap-3 items-start relative overflow-hidden group hover:shadow-md transition-all">
                 <div className="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
                 <div className="bg-rose-100 text-rose-600 dark:bg-rose-900/50 p-2 rounded-full shrink-0 group-hover:rotate-12 transition-transform">
-                  <AlertTriangle className="w-6 h-6" />
+                  <AlertTriangle className="w-4 h-4" />
                 </div>
-                <p className="text-rose-900 dark:text-rose-200 text-lg pt-0.5 font-medium">{text}</p>
+                <p className="text-rose-900 dark:text-rose-200 text-sm pt-0.5 font-medium">{text}</p>
               </div>
             ))}
           </div>
@@ -137,14 +137,14 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
       
       case 'win_strategy':
         return (
-          <div className="grid gap-4 md:gap-6 max-w-3xl mx-auto">
+          <div className="grid gap-3 md:gap-4 max-w-3xl mx-auto">
             {data.win_strategy?.map((text, i) => (
-              <div key={i} className="bg-amber-50/80 dark:bg-amber-950/30 backdrop-blur-md p-6 rounded-2xl border border-amber-200 dark:border-amber-900/50 shadow-sm flex gap-4 items-start relative overflow-hidden group hover:shadow-md transition-all">
+              <div key={i} className="bg-amber-50/80 dark:bg-amber-950/30 backdrop-blur-md p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50 shadow-sm flex gap-3 items-start relative overflow-hidden group hover:shadow-md transition-all">
                 <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
                 <div className="bg-amber-100 text-amber-600 dark:bg-amber-900/50 p-2 rounded-full shrink-0 group-hover:scale-110 transition-transform">
-                  <Swords className="w-6 h-6" />
+                  <Swords className="w-4 h-4" />
                 </div>
-                <p className="text-amber-900 dark:text-amber-200 text-lg pt-0.5 font-medium">{text}</p>
+                <p className="text-amber-900 dark:text-amber-200 text-sm pt-0.5 font-medium">{text}</p>
               </div>
             ))}
           </div>
@@ -152,20 +152,20 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
       
       case 'objections':
         return (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-4xl mx-auto space-y-4">
             {data.objections?.map((obj, i) => (
               <div key={i} className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-sm hover:border-violet-300 dark:hover:border-violet-700 transition-colors">
-                <div className="bg-slate-50 dark:bg-zinc-950/50 p-5 flex gap-4 items-start border-b border-slate-100 dark:border-zinc-800">
-                  <div className="bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-slate-400 p-1.5 rounded shrink-0 mt-0.5">
-                    <span className="font-bold text-xs uppercase tracking-wider">Klien</span>
+                <div className="bg-slate-50 dark:bg-zinc-950/50 p-4 flex gap-3 items-start border-b border-slate-100 dark:border-zinc-800">
+                  <div className="bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-slate-400 p-1 rounded shrink-0 mt-0.5">
+                    <span className="font-bold text-[10px] uppercase tracking-wider">Klien</span>
                   </div>
-                  <p className="text-slate-700 dark:text-slate-300 font-medium italic">"{obj.objection}"</p>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm font-medium italic">"{obj.objection}"</p>
                 </div>
-                <div className="p-5 flex gap-4 items-start bg-violet-50/30 dark:bg-violet-900/10">
-                  <div className="bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400 p-1.5 rounded shrink-0 mt-0.5">
-                    <span className="font-bold text-xs uppercase tracking-wider">Kita</span>
+                <div className="p-4 flex gap-3 items-start bg-violet-50/30 dark:bg-violet-900/10">
+                  <div className="bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400 p-1 rounded shrink-0 mt-0.5">
+                    <span className="font-bold text-[10px] uppercase tracking-wider">Kita</span>
                   </div>
-                  <p className="text-violet-900 dark:text-violet-200 font-medium">{obj.response}</p>
+                  <p className="text-violet-900 dark:text-violet-200 text-sm font-medium">{obj.response}</p>
                 </div>
               </div>
             ))}
@@ -176,12 +176,12 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
         return (
           <div className="max-w-4xl mx-auto space-y-3">
             {data.next_steps.map((item, i) => (
-              <div key={i} className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors shadow-sm">
-                <div className="flex gap-4 items-center">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 flex items-center justify-center font-bold text-sm shrink-0">
+              <div key={i} className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors shadow-sm">
+                <div className="flex gap-3 items-center">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 flex items-center justify-center font-bold text-xs shrink-0">
                     {i + 1}
                   </div>
-                  <p className="text-slate-700 dark:text-slate-300 font-medium text-lg">{item.action}</p>
+                  <p className="text-slate-700 dark:text-slate-300 font-medium text-sm">{item.action}</p>
                 </div>
                 <div className={cn(
                   "px-4 py-1.5 rounded-full text-sm font-bold tracking-wide shrink-0",
@@ -198,14 +198,14 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
       
       case 'questions':
         return (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-4">
             {data.questions.map((text, i) => (
-              <div key={i} className="flex gap-4 items-end">
+              <div key={i} className="flex gap-3 items-end">
                 <div className="bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-900/30 p-2 rounded-full shrink-0 mb-1">
-                  <Target className="w-5 h-5" />
+                  <Target className="w-4 h-4" />
                 </div>
-                <div className="bg-slate-100 dark:bg-zinc-800 p-5 rounded-2xl rounded-bl-sm border border-slate-200 dark:border-zinc-700 shadow-sm">
-                  <p className="text-slate-800 dark:text-slate-200 text-lg font-medium">{text}</p>
+                <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-bl-sm border border-slate-200 dark:border-zinc-700 shadow-sm">
+                  <p className="text-slate-800 dark:text-slate-200 text-sm font-medium">{text}</p>
                 </div>
               </div>
             ))}
@@ -250,14 +250,14 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
       >
         <div key={stepInfo.id} className="animate-in fade-in slide-in-from-right-8 duration-500 fill-mode-both h-full flex flex-col">
           
-          <div className="flex flex-col items-center mb-10 mt-4">
+          <div className="flex flex-col items-center mb-6 mt-2">
             <div className={cn(
-              "p-4 rounded-2xl mb-4 shadow-sm dark:bg-opacity-30",
+              "p-3 rounded-xl mb-3 shadow-sm dark:bg-opacity-30",
               stepInfo.colorTheme.light, stepInfo.colorTheme.text
             )}>
-              <HeaderIcon className="w-10 h-10" />
+              <HeaderIcon className="w-8 h-8" />
             </div>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-800 dark:text-white">{stepInfo.title}</h2>
+            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-slate-800 dark:text-white">{stepInfo.title}</h2>
           </div>
           
           <div className="flex-1 pb-24">
@@ -267,16 +267,16 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
       </div>
 
       {/* Footer Navigation Controls (Frosted Glass Panel) */}
-      <div className="p-6 flex justify-between items-center shrink-0 z-10 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-lg border-t border-slate-200/50 dark:border-zinc-800/50">
+      <div className="px-6 py-3 flex justify-between items-center shrink-0 z-10 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-lg border-t border-slate-200/50 dark:border-zinc-800/50">
         <Button 
           variant="ghost" 
           onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
           className={cn(
-            "gap-2 h-14 px-6 rounded-2xl font-bold transition-all",
+            "gap-2 h-10 px-4 rounded-xl font-bold transition-all",
             currentStep === 0 ? "opacity-0 pointer-events-none" : "hover:bg-slate-200 dark:hover:bg-zinc-800"
           )}
         >
-          <ChevronLeft className="w-5 h-5" /> Back
+          <ChevronLeft className="w-4 h-4" /> Back
         </Button>
         
         <Button 
@@ -288,13 +288,13 @@ export function ActionPlanViewer({ htmlContent, onClose }: ActionPlanViewerProps
             }
           }}
           className={cn(
-            "gap-3 h-14 px-8 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1",
+            "gap-2 h-10 px-6 rounded-xl font-bold text-sm md:text-base transition-all duration-300 shadow-md hover:shadow-lg hover:-translate-y-0.5",
             currentStep === activeSteps.length - 1 
               ? "bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-zinc-900" 
               : `${stepInfo.colorTheme.bg} ${stepInfo.colorTheme.hover} text-white ${stepInfo.colorTheme.shadow}`
           )}
         >
-          {currentStep === activeSteps.length - 1 ? "Selesai" : "Lanjut"} <ChevronRight className="w-5 h-5" />
+          {currentStep === activeSteps.length - 1 ? "Selesai" : "Lanjut"} <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
     </div>

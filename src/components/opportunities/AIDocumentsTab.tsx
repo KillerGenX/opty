@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Loader2, Download, Printer, Eye } from "lucide-react"
+import { FileText, Loader2, Printer, Eye, FileSpreadsheet } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { GenerateOptionsDialog } from "./GenerateOptionsDialog"
 import { ActionPlanViewer } from "./ActionPlanViewer"
@@ -13,23 +13,24 @@ import { cn } from "@/lib/utils"
 
 interface AIDocumentsTabProps {
   opportunityId: string
+  opportunityName?: string
   completenessScore: number
 }
 
 const DOCUMENTS = [
   { id: 'design', title: 'ES Action Plan & Insights', desc: 'AI analysis, risk assessment, and recommended next steps.' },
-  { id: 'concept_art', title: 'Solution Concept Art', desc: 'AI-generated visual illustration of the proposed solution.' },
+  { id: 'opportunity_proposal', title: 'Opportunity Proposal', desc: 'Internal Deal Memo.' },
+  { id: 'timeline', title: 'Implementation Timeline', desc: 'Project phases and milestones formatted as Gantt Chart.' },
   { id: 'boq', title: 'Bill of Quantities (BoQ)', desc: 'Structured table of all line items and specifications.' },
-  { id: 'bc', title: 'Business Case', desc: 'Justification, ROI, and financial overview.' },
-  { id: 'timeline', title: 'Implementation Timeline', desc: 'Project phases and milestones.' },
+  { id: 'concept_art', title: 'Solution Concept Art', desc: 'AI-generated visual illustration of the proposed solution.' },
 ]
 
-export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocumentsTabProps) {
+export function AIDocumentsTab({ opportunityId, opportunityName, completenessScore }: AIDocumentsTabProps) {
   const [docs, setDocs] = useState<Record<string, any>>({})
   const [generating, setGenerating] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [previewDoc, setPreviewDoc] = useState<{id: string, title: string, content: string} | null>(null)
-  const [optionsDialogState, setOptionsDialogState] = useState<{open: boolean, docId: string, docTitle: string}>({
+  const [previewDoc, setPreviewDoc] = useState<{ id: string, title: string, content: string } | null>(null)
+  const [optionsDialogState, setOptionsDialogState] = useState<{ open: boolean, docId: string, docTitle: string }>({
     open: false,
     docId: '',
     docTitle: ''
@@ -46,7 +47,7 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
       .from('opportunity_documents')
       .select('*')
       .eq('opportunity_id', opportunityId)
-    
+
     if (data) {
       const docsMap: Record<string, any> = {}
       data.forEach(d => docsMap[d.doc_type] = d)
@@ -73,20 +74,20 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          opportunityId, 
+        body: JSON.stringify({
+          opportunityId,
           docType: docId,
           additionalContext: options.additionalContext,
           referenceImage: options.referenceImage,
           previousDraft: docs[docId] ? docs[docId].content_html : undefined
         })
       })
-      
+
       if (!res.ok) {
         const error = await res.json()
         throw new Error(error.error || 'Failed to generate document')
       }
-      
+
       const { document } = await res.json()
       setDocs(prev => ({ ...prev, [docId]: document }))
       setOptionsDialogState(prev => ({ ...prev, open: false }))
@@ -189,7 +190,7 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
 
   const printDocument = (docId: string, htmlContent: string, title: string) => {
     const finalHtml = getPrintableHtml(docId, htmlContent, title);
-    
+
     const printWindow = window.open('', '_blank')
     if (printWindow) {
       printWindow.document.write(`
@@ -233,36 +234,41 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
     }
   }
 
-  const downloadHtml = (docId: string, htmlContent: string, filename: string) => {
+  // downloadHtml removed
+
+  const downloadExcel = (docId: string, htmlContent: string, filename: string) => {
     const finalHtml = getPrintableHtml(docId, htmlContent, filename);
     const blob = new Blob([`
-      <!DOCTYPE html>
-      <html>
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
       <head>
         <meta charset="utf-8">
-        <title>${filename}</title>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>BoQ</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
         <style>
-          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 40px auto; padding: 0 20px; }
-          /* Same basic styles for offline viewing */
-          h1 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
-          .alert-box { background: #fef2f2; padding: 15px; border-radius: 5px; }
-          .win-box { background: #fffbeb; padding: 15px; border-radius: 5px; }
-          .question-box { background: #fdf4ff; padding: 15px; border-radius: 5px; }
-          .objection-item { border: 1px solid #ddd; margin-bottom: 10px; border-radius: 4px; }
-          .obj-client { background: #f9f9f9; padding: 8px; margin: 0; border-bottom: 1px solid #ddd; }
-          .obj-kita { background: #f3e8ff; padding: 8px; margin: 0; }
-          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-          th, td { border: 1px solid #ddd; padding: 10px; }
-          th { background: #f5f5f5; }
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 11pt; }
+          th, td { border: 1pt solid #000000; padding: 5px; }
+          th { background-color: #dbeafe; font-weight: bold; }
         </style>
       </head>
       <body>${finalHtml}</body>
       </html>
-    `], { type: 'text/html' })
+    `], { type: 'application/vnd.ms-excel' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${filename}.html`
+    a.download = `${filename}.xls`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -305,7 +311,7 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
                 </div>
                 <CardDescription className="pt-2">{doc.desc}</CardDescription>
               </CardHeader>
-              
+
               <CardContent className="flex-1">
                 {isGenerated && (
                   <div className="text-xs text-muted-foreground space-y-1">
@@ -317,8 +323,8 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
 
               <CardFooter className="pt-3 border-t flex flex-col gap-2">
                 <div className="flex w-full gap-2">
-                  <Button 
-                    variant="secondary" 
+                  <Button
+                    variant="secondary"
                     className="flex-1"
                     onClick={() => openGenerateOptions(doc.id)}
                     disabled={isGenerating}
@@ -331,10 +337,10 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
                       "Generate with AI"
                     )}
                   </Button>
-                  
+
                   {isGenerated && (
-                    <Button 
-                      variant="default" 
+                    <Button
+                      variant="default"
                       className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                       onClick={() => setPreviewDoc({ id: doc.id, title: doc.title, content: docData.content_html })}
                     >
@@ -342,23 +348,25 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
                     </Button>
                   )}
                 </div>
-                
+
                 {isGenerated && (
-                  <div className="flex gap-2 w-full mt-2">
-                    <Button 
-                      variant="secondary" 
+                  <div className={cn("grid gap-2 w-full mt-2", (doc.id === 'boq' || doc.id === 'timeline') ? "grid-cols-2" : "grid-cols-1")}>
+                    <Button
+                      variant="secondary"
                       className="w-full text-xs"
                       onClick={() => printDocument(doc.id, docData.content_html, doc.title)}
                     >
-                      <Printer className="mr-2 h-3 w-3" /> Print PDF
+                      <Printer className="mr-2 h-3 w-3" /> PDF
                     </Button>
-                    <Button 
-                      variant="secondary" 
-                      className="w-full text-xs"
-                      onClick={() => downloadHtml(doc.id, docData.content_html, `${doc.id}_document`)}
-                    >
-                      <Download className="mr-2 h-3 w-3" /> Download HTML
-                    </Button>
+                    {(doc.id === 'boq' || doc.id === 'timeline') && (
+                      <Button
+                        variant="secondary"
+                        className="w-full text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                        onClick={() => downloadExcel(doc.id, docData.content_html, `${doc.title} - ${opportunityName || opportunityId}`)}
+                      >
+                        <FileSpreadsheet className="mr-2 h-3 w-3" /> Excel
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardFooter>
@@ -367,7 +375,7 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
         })}
       </div>
 
-      <GenerateOptionsDialog 
+      <GenerateOptionsDialog
         open={optionsDialogState.open}
         onOpenChange={(open) => setOptionsDialogState(prev => ({ ...prev, open }))}
         onGenerate={generateDocument}
@@ -380,7 +388,7 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
           previewDoc?.id === 'design' ? "sm:max-w-[1000px] p-0 border-none bg-transparent shadow-none" : "sm:max-w-[800px] max-h-[85vh] p-6"
         )}>
           {previewDoc?.id === 'design' ? (
-             <ActionPlanViewer htmlContent={previewDoc.content} onClose={() => setPreviewDoc(null)} />
+            <ActionPlanViewer htmlContent={previewDoc.content} onClose={() => setPreviewDoc(null)} />
           ) : (
             <>
               <DialogHeader>
@@ -389,9 +397,9 @@ export function AIDocumentsTab({ opportunityId, completenessScore }: AIDocuments
                 </DialogTitle>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto mt-4 pr-2">
-                <div 
+                <div
                   className="prose prose-sm md:prose-base dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: previewDoc?.content || '' }} 
+                  dangerouslySetInnerHTML={{ __html: previewDoc?.content || '' }}
                 />
               </div>
             </>

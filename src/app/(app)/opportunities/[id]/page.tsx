@@ -214,7 +214,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
         {/* Tab Content: AI Docs */}
         <TabsContent value="ai_docs" className="mt-6">
-          <AIDocumentsTab opportunityId={opty.id} completenessScore={opty.completeness_score} />
+          <AIDocumentsTab opportunityId={opty.id} opportunityName={opty.opportunity_name} completenessScore={opty.completeness_score} />
         </TabsContent>
         
         {/* Tab Content: History (Placeholder) */}
