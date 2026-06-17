@@ -30,7 +30,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
     .from('master_settings')
     .select('value')
     .eq('category', 'STAGE')
-    .order('id', { ascending: true })
+    .order('sort_order', { ascending: true })
 
   const stagesList = stageSettings && stageSettings.length > 0 
     ? stageSettings.map(s => s.value) 

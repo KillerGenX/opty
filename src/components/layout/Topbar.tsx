@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { GlobalSearch } from "./GlobalSearch"
 
@@ -44,8 +44,20 @@ export function Topbar() {
 
   const initial = userEmail ? userEmail.charAt(0).toUpperCase() : "U"
 
+  const [isNavigatingQuickAdd, setIsNavigatingQuickAdd] = useState(false)
+  const pathname = usePathname()
+
+  useEffect(() => {
+    setIsNavigatingQuickAdd(false)
+  }, [pathname])
+
+  const handleQuickAdd = () => {
+    setIsNavigatingQuickAdd(true)
+    router.push('/opportunities/new')
+  }
+
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-slate-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6">
+    <div className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-slate-200/60 bg-white/80 px-4 backdrop-blur-md dark:border-zinc-800/60 dark:bg-zinc-950/80 sm:px-6">
       <div className="flex flex-1 items-center gap-4">
         <div className="relative w-full max-w-sm" onClick={() => setSearchOpen(true)}>
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-zinc-500" />
@@ -66,11 +78,12 @@ export function Topbar() {
         <Button 
           variant="default" 
           size="sm" 
+          disabled={isNavigatingQuickAdd}
           className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-9 hidden md:flex items-center gap-1.5"
-          onClick={() => router.push('/opportunities/new')}
+          onClick={handleQuickAdd}
         >
-          <Plus className="h-4 w-4" />
-          <span>Quick Add</span>
+          {isNavigatingQuickAdd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          <span>{isNavigatingQuickAdd ? 'Loading...' : 'Quick Add'}</span>
         </Button>
         
         <Button variant="ghost" size="icon" className="relative text-slate-500 hover:text-emerald-900 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:text-emerald-500 dark:hover:bg-zinc-900 rounded-xl ml-1">
@@ -115,6 +128,6 @@ export function Topbar() {
       </div>
 
       <GlobalSearch open={searchOpen} setOpen={setSearchOpen} />
-    </header>
+    </div>
   )
 }

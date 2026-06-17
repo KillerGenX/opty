@@ -163,6 +163,7 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
                       className="font-medium text-slate-900 dark:text-zinc-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors break-words whitespace-normal"
                     >
                       {opty.opportunity_name}
+                      {navigatingRowId === opty.id && <Loader2 className="inline ml-2 h-4 w-4 animate-spin text-emerald-600" />}
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <div className="text-xs text-slate-500 font-medium">
