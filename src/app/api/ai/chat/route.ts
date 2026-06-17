@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import '@/lib/gcp-setup'
 import { GoogleGenAI } from '@google/genai'
 
 const ai = new GoogleGenAI({

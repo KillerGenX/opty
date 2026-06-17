@@ -1,3 +1,4 @@
+import '@/lib/gcp-setup'
 import { GoogleGenAI } from '@google/genai'
 
 // Initialize Google Gen AI with Vertex AI configuration
