@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Building2, FileText, Target, BrainCircuit, Loader2, Plus, Trash2 } from "lucide-react"
+import { Building2, FileText, Target, BrainCircuit, Loader2, Plus, Trash2, Sparkles } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MagicImportDialog } from "./MagicImportDialog"
 
@@ -54,6 +54,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
   const [extractedLineItems, setExtractedLineItems] = useState<any[]>([])
   const [historicalCustomers, setHistoricalCustomers] = useState<any[]>([])
   const [masterSettings, setMasterSettings] = useState<any[]>([])
+  const [isRegeneratingContext, setIsRegeneratingContext] = useState(false)
   
   const [currentStep, setCurrentStep] = useState(1)
   const [manualLineItems, setManualLineItems] = useState<any[]>([])
@@ -244,6 +245,48 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
 
   const handleChange = (field: keyof OpportunityFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleGenerateAI = async () => {
+    if (!initialData?.id) return;
+    setIsRegeneratingContext(true);
+    try {
+      const response = await fetch('/api/ai/regenerate-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          opportunityId: initialData.id,
+          currentData: {
+            pain_points: formData.pain_points,
+            scope_of_work: formData.scope_of_work,
+            technical_requirements: formData.technical_requirements,
+            constraints: formData.constraints,
+            competitors: formData.competitors,
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+        return;
+      }
+
+      const updatedFields = await response.json();
+      
+      // Update the 5 textareas
+      if (updatedFields.pain_points) handleChange('pain_points', updatedFields.pain_points);
+      if (updatedFields.scope_of_work) handleChange('scope_of_work', updatedFields.scope_of_work);
+      if (updatedFields.technical_requirements) handleChange('technical_requirements', updatedFields.technical_requirements);
+      if (updatedFields.constraints) handleChange('constraints', updatedFields.constraints);
+      if (updatedFields.competitors) handleChange('competitors', updatedFields.competitors);
+
+    } catch (error) {
+      console.error('Error generating AI context:', error);
+      alert('Failed to generate context from AI.');
+    } finally {
+      setIsRegeneratingContext(false);
+    }
   }
 
   const handleCustomerNameChange = (val: string) => {
@@ -518,15 +561,30 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
       </Card>
 
       {/* SECTION 3: AI Context */}
-      <Card className="shadow-sm border-emerald-200 dark:border-emerald-900 overflow-hidden">
-        <CardHeader className="border-b border-emerald-100 dark:border-emerald-900/50 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40">
-          <div className="flex items-center gap-2">
-            <BrainCircuit className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <CardTitle className="text-emerald-950 dark:text-emerald-100">AI Document Context</CardTitle>
+      <Card className="shadow-sm border-emerald-200 dark:border-emerald-900 overflow-hidden relative">
+        <CardHeader className="border-b border-emerald-100 dark:border-emerald-900/50 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 flex flex-row items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <BrainCircuit className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <CardTitle className="text-emerald-950 dark:text-emerald-100">AI Document Context</CardTitle>
+            </div>
+            <CardDescription className="text-emerald-800/70 dark:text-emerald-400/70">
+              Crucial context used by Generative AI to craft highly-tailored High-Level Designs and Business Cases. The more detail, the better the AI output.
+            </CardDescription>
           </div>
-          <CardDescription className="text-emerald-800/70 dark:text-emerald-400/70">
-            Crucial context used by Generative AI to craft highly-tailored High-Level Designs and Business Cases. The more detail, the better the AI output.
-          </CardDescription>
+          {isEdit && (
+            <Button 
+              type="button"
+              onClick={handleGenerateAI} 
+              disabled={isRegeneratingContext}
+              variant="default"
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-2"
+            >
+              {isRegeneratingContext ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Generate AI
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-6 grid gap-6 md:grid-cols-2">
           
