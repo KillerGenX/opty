@@ -98,7 +98,7 @@ Extract the following information and output strictly in JSON format matching th
       "product_name": "String (Best guess of the product/service name, e.g. MPLS L2, DIA, etc.)",
       "specification": "String (General technical details, SLA, or term.)",
       "quantity": "Number (Number of UNITS or LINKS/CIRCUITS. For Telco, this is usually 1 per circuit, NOT the bandwidth. For hardware, this is the number of units. Default to 1 if unknown.)",
-      "capacity": "String (Descriptive capacity or bandwidth string. e.g., '1000 Mbps', '10 Gbps', '3000 Mbps'. Leave empty if not applicable for hardware/software.)",
+      "capacity": "String (Descriptive bandwidth. IMPORTANT NORMALIZATION: Remove thousand separators (e.g. '2.800 Mbps' -> '2800 Mbps') but PRESERVE true decimals (e.g. '2.5 Gbps' stays '2.5 Gbps'). Convert comma decimals to dot decimals ('2,5 Gbps' -> '2.5 Gbps').)",
       "unit": "String (Unit of the quantity, e.g. link, circuit, unit, node, user, license)",
       "mrc": "Number (Monthly Recurring Charge. Do not format with commas/periods, just raw number)",
       "otc": "Number (One Time Charge or unit price for hardware. Do not format with commas/periods, just raw number)",

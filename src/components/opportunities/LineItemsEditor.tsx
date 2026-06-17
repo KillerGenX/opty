@@ -43,8 +43,34 @@ const formatNumber = (value: number) =>
   value ? new Intl.NumberFormat('id-ID').format(value) : ''
 
 const parseCapacityNum = (capacity: string) => {
-  const match = (capacity || '').match(/^(\d+(?:\.\d+)?)/)
-  return match ? match[1] : ''
+  if (!capacity) return '';
+  let str = capacity.replace(/[^\d.,]/g, '');
+  if (!str) return '';
+
+  const lastDot = str.lastIndexOf('.');
+  const lastComma = str.lastIndexOf(',');
+
+  // Jika ada koma DAN titik (misal: 1.000,50 atau 1,000.50)
+  if (lastDot > -1 && lastComma > -1) {
+    if (lastDot > lastComma) return str.replace(/,/g, ''); // Format US (1,000.50 -> 1000.50)
+    return str.replace(/\./g, '').replace(/,/g, '.');     // Format ID (1.000,50 -> 1000.50)
+  }
+  
+  // Jika hanya ada koma
+  if (lastComma > -1) {
+    // Jika persis 3 angka di belakang koma, asumsikan ribuan (misal: 2,000 -> 2000)
+    if (/,(\d{3})$/.test(str) && (str.match(/,/g) || []).length === 1) return str.replace(/,/g, ''); 
+    return str.replace(/,/g, '.'); // Jika tidak, asumsikan desimal (misal: 2,5 -> 2.5)
+  }
+  
+  // Jika hanya ada titik
+  if (lastDot > -1) {
+    // Jika persis 3 angka di belakang titik, asumsikan ribuan (misal: 2.800 -> 2800)
+    if (/\.(\d{3})$/.test(str)) return str.replace(/\./g, '');
+    return str; // Jika tidak, asumsikan desimal (misal: 2.5 -> 2.5)
+  }
+  
+  return str;
 }
 
 const parseCapacityUnit = (capacity: string) => {
