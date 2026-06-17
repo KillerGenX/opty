@@ -82,7 +82,15 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     
     const fetchSettings = async () => {
       const { data } = await supabase.from('master_settings').select('*').eq('is_active', true).order('sort_order')
-      if (data) setMasterSettings(data)
+      if (data) {
+        setMasterSettings(data)
+        if (!initialData) {
+          const dbStages = data.filter(s => s.category === 'STAGE').map(s => s.label)
+          if (dbStages.length > 0) {
+            setFormData(prev => ({ ...prev, stage: dbStages[0] }))
+          }
+        }
+      }
     }
     
     fetchCustomers()
