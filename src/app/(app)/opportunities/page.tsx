@@ -13,6 +13,16 @@ export default async function OpportunitiesPage() {
   // Safely fallback to empty array if error
   const safeOpportunities = opportunities || []
 
+  const { data: stageSettings } = await supabase
+    .from('master_settings')
+    .select('value')
+    .eq('category', 'STAGE')
+    .order('id', { ascending: true })
+
+  const stagesList = stageSettings && stageSettings.length > 0 
+    ? stageSettings.map(s => s.value) 
+    : ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Won', 'Lost']
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
@@ -22,7 +32,7 @@ export default async function OpportunitiesPage() {
         </p>
       </div>
 
-      <OpportunityListClient initialData={safeOpportunities} />
+      <OpportunityListClient initialData={safeOpportunities} stages={stagesList} />
     </div>
   )
 }

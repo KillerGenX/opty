@@ -17,7 +17,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-export function OpportunityListClient({ initialData }: { initialData: any[] }) {
+interface OpportunityListClientProps {
+  initialData: any[]
+  stages: string[]
+}
+
+export function OpportunityListClient({ initialData, stages }: OpportunityListClientProps) {
   const router = useRouter()
   const [search, setSearch] = useState("")
   const [isNavigatingNew, setIsNavigatingNew] = useState(false)
@@ -43,27 +48,53 @@ export function OpportunityListClient({ initialData }: { initialData: any[] }) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
   }
 
+  const STAGE_COLORS = [
+    'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800',
+    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
+    'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800',
+    'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
+    'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-400 dark:border-fuchsia-800',
+    'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400 dark:border-cyan-800'
+  ]
+  
+  const PROGRESS_COLORS = [
+    'bg-slate-400 dark:bg-slate-500',
+    'bg-blue-500',
+    'bg-indigo-500',
+    'bg-amber-500',
+    'bg-fuchsia-500',
+    'bg-cyan-500'
+  ]
+
   const getStageColor = (stage: string) => {
-    switch (stage) {
-      case 'Prospecting': return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800'
-      case 'Qualification': return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
-      case 'Proposal': return 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800'
-      case 'Negotiation': return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'
-      case 'Won': return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
-      case 'Lost': return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
-      default: return 'bg-slate-100 text-slate-700 border-slate-200'
-    }
+    // Force known endpoint stages to specific colors
+    if (stage.toLowerCase() === 'won' || stage.toLowerCase() === 'menang') return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+    if (stage.toLowerCase() === 'lost' || stage.toLowerCase() === 'kalah') return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
+    
+    const index = stages.indexOf(stage)
+    if (index === -1) return STAGE_COLORS[0]
+    return STAGE_COLORS[index % STAGE_COLORS.length]
   }
 
   const getStageProgress = (stage: string) => {
-    switch (stage) {
-      case 'Prospecting': return { percent: 20, color: 'bg-slate-400 dark:bg-slate-500' }
-      case 'Qualification': return { percent: 40, color: 'bg-blue-500' }
-      case 'Proposal': return { percent: 60, color: 'bg-indigo-500' }
-      case 'Negotiation': return { percent: 80, color: 'bg-amber-500' }
-      case 'Won': return { percent: 100, color: 'bg-emerald-500' }
-      case 'Lost': return { percent: 100, color: 'bg-red-500' }
-      default: return { percent: 0, color: 'bg-slate-200 dark:bg-slate-700' }
+    if (stage.toLowerCase() === 'won' || stage.toLowerCase() === 'menang') return { percent: 100, color: 'bg-emerald-500' }
+    if (stage.toLowerCase() === 'lost' || stage.toLowerCase() === 'kalah') return { percent: 100, color: 'bg-red-500' }
+
+    const index = stages.indexOf(stage)
+    if (index === -1 || stages.length <= 1) return { percent: 0, color: PROGRESS_COLORS[0] }
+    
+    // Determine max index excluding 'Won' and 'Lost' if they exist at the end
+    let maxValidIndex = stages.length - 1
+    if (stages[stages.length - 1]?.toLowerCase() === 'lost') maxValidIndex--
+    if (stages[stages.length - 2]?.toLowerCase() === 'won') maxValidIndex--
+    if (maxValidIndex < 1) maxValidIndex = 1
+
+    const rawPercent = (index / maxValidIndex) * 100
+    const percent = Math.min(Math.round(rawPercent), 95) // Cap at 95% unless Won/Lost
+
+    return { 
+      percent, 
+      color: PROGRESS_COLORS[index % PROGRESS_COLORS.length] 
     }
   }
 

@@ -1,5 +1,5 @@
 export type Role = 'leader' | 'team'
-export type Stage = 'Prospecting' | 'Qualification' | 'Proposal' | 'Negotiation' | 'Won' | 'Lost'
+export type Stage = string
 export type DocType = 'design' | 'boq' | 'bc' | 'timeline'
 export type DocStatus = 'ready' | 'outdated'
 

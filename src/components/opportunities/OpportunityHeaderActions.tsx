@@ -8,14 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Trash2, AlertTriangle } from "lucide-react"
 
-export function OpportunityHeaderActions({ optyId, currentStage }: { optyId: string, currentStage: string }) {
+export function OpportunityHeaderActions({ optyId, currentStage, stages }: { optyId: string, currentStage: string, stages: string[] }) {
   const router = useRouter()
   const supabase = createClient()
   const [updating, setUpdating] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [open, setOpen] = useState(false)
 
-  const STAGES = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Won', 'Lost']
+
 
   const handleStageChange = async (newStage: string | null) => {
     if (!newStage) return;
@@ -57,7 +57,7 @@ export function OpportunityHeaderActions({ optyId, currentStage }: { optyId: str
           <SelectValue placeholder="Stage" />
         </SelectTrigger>
         <SelectContent>
-          {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          {stages.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
         </SelectContent>
       </Select>
       

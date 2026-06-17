@@ -103,7 +103,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
   const [formData, setFormData] = useState<OpportunityFormData>({
     opportunity_name: initialData?.opportunity_name || "",
     opportunity_type: initialData?.opportunity_type || "Connectivity",
-    stage: initialData?.stage || "Prospecting",
+    stage: initialData?.stage || (stagesList.length > 0 ? stagesList[0] : "Prospecting"),
     probability: initialData?.probability?.toString() || "",
     expected_close_date: initialData?.expected_close_date || "",
     sfa_id: initialData?.sfa_id || "",

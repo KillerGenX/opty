@@ -26,6 +26,16 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
     notFound()
   }
 
+  const { data: stageSettings } = await supabase
+    .from('master_settings')
+    .select('value')
+    .eq('category', 'STAGE')
+    .order('id', { ascending: true })
+
+  const stagesList = stageSettings && stageSettings.length > 0 
+    ? stageSettings.map(s => s.value) 
+    : ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Won', 'Lost']
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
   }
@@ -37,7 +47,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight">{opty.opportunity_name}</h1>
-            <OpportunityHeaderActions optyId={opty.id} currentStage={opty.stage} />
+            <OpportunityHeaderActions optyId={opty.id} currentStage={opty.stage} stages={stagesList} />
           </div>
           <p className="text-slate-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
             {opty.customer_name} {opty.customer_industry ? `• ${opty.customer_industry}` : ''}

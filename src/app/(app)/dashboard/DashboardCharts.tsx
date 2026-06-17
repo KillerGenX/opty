@@ -7,6 +7,7 @@ import { PieChart as PieChartIcon, BarChart3 } from "lucide-react"
 
 interface DashboardChartsProps {
   opportunities: any[]
+  stages: string[]
 }
 
 const COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6']
@@ -17,9 +18,8 @@ const formatCurrency = (value: number) => {
   return `Rp ${value}`
 }
 
-export function DashboardCharts({ opportunities }: DashboardChartsProps) {
+export function DashboardCharts({ opportunities, stages }: DashboardChartsProps) {
   const stageData = useMemo(() => {
-    const stages = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Won', 'Lost']
     const data = stages.map(stage => {
       const optysInStage = opportunities.filter(o => o.stage === stage)
       const value = optysInStage.reduce((sum, opty) => {

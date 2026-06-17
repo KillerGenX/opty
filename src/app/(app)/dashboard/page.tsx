@@ -12,6 +12,16 @@ export default async function DashboardPage() {
     .select('*, opportunity_line_items(*)')
     .order('created_at', { ascending: false })
 
+  const { data: stageSettings } = await supabase
+    .from('master_settings')
+    .select('value')
+    .eq('category', 'STAGE')
+    .order('id', { ascending: true })
+    
+  const stagesList = stageSettings && stageSettings.length > 0 
+    ? stageSettings.map(s => s.value) 
+    : ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Won', 'Lost']
+
   const { data: documents } = await supabase
     .from('opportunity_documents')
     .select('id')
@@ -133,8 +143,8 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Interactive Charts Component */}
-      <DashboardCharts opportunities={optyList} />
+      {/* Charts Row */}
+      <DashboardCharts opportunities={optyList} stages={stagesList} />
 
       {/* Recent Opportunities */}
       <Card className="shadow-sm border-slate-200/60 dark:border-zinc-800 bg-white/60 dark:bg-zinc-950/60 backdrop-blur-md">
