@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LineItemsEditor } from "@/components/opportunities/LineItemsEditor"
 import { AIDocumentsTab } from "@/components/opportunities/AIDocumentsTab"
 import { AIChatTab } from "@/components/opportunities/AIChatTab"
+import { ActivityLogTab } from "@/components/opportunities/ActivityLogTab"
 import { OpportunityHeaderActions } from "@/components/opportunities/OpportunityHeaderActions"
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -241,18 +242,9 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
           />
         </TabsContent>
 
-        {/* Tab Content: History (Placeholder) */}
+        {/* Tab Content: History */}
         <TabsContent value="history" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Activity Log</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12 text-muted-foreground">
-                Audit trail will be shown here.
-              </div>
-            </CardContent>
-          </Card>
+          <ActivityLogTab opportunityId={opty.id} />
         </TabsContent>
       </Tabs>
     </div>

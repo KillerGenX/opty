@@ -18,7 +18,7 @@ export function OpportunityHeaderActions({ optyId, currentStage, stages }: { opt
 
 
   const handleStageChange = async (newStage: string | null) => {
-    if (!newStage) return;
+    if (!newStage || newStage === currentStage) return;
     
     setUpdating(true)
     const { error } = await supabase
@@ -26,12 +26,23 @@ export function OpportunityHeaderActions({ optyId, currentStage, stages }: { opt
       .update({ stage: newStage })
       .eq('id', optyId)
     
-    setUpdating(false)
     if (!error) {
+      // Record activity log
+      const { data: { session } } = await supabase.auth.getSession()
+      const email = session?.user?.email || 'System'
+      
+      await supabase.from('opportunity_activities').insert([{
+        opportunity_id: optyId,
+        activity_type: 'STAGE_CHANGE',
+        description: `Stage changed from "${currentStage}" to "${newStage}"`,
+        created_by: email
+      }])
+
       router.refresh()
     } else {
       alert("Failed to update stage: " + error.message)
     }
+    setUpdating(false)
   }
 
   const handleDelete = async () => {

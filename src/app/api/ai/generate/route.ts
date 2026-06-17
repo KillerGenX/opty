@@ -122,6 +122,14 @@ export async function POST(req: Request) {
       result = data[0]
     }
 
+    // Record activity log
+    await supabase.from('opportunity_activities').insert([{
+      opportunity_id: opportunityId,
+      activity_type: 'DOC_GENERATED',
+      description: `Generated AI Document: ${docType}`,
+      created_by: user.email || 'System'
+    }])
+
     return NextResponse.json({ success: true, document: result })
 
   } catch (error: any) {
