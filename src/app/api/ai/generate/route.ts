@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { generateContent, generateConceptImage } from '@/lib/gemini'
 import { getPrompt } from '@/lib/prompts'
 
+export const maxDuration = 60; // Allow up to 60 seconds on Vercel
+
 // Force recompile to ensure updated prompt is used by Next.js cache
 export async function POST(req: Request) {
   try {
