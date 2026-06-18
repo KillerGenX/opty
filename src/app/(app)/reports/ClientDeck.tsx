@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -98,27 +98,36 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   const [isLogging, setIsLogging] = useState(false)
 
   // Period Filter
-  const [filterPeriod, setFilterPeriod] = useState<'week' | 'month' | 'quarter' | 'all'>('month')
+  const [filterPeriod, setFilterPeriod] = useState<'week' | 'month' | 'quarter' | 'all' | 'custom'>('month')
+  const [customStart, setCustomStart] = useState<string>('')
+  const [customEnd, setCustomEnd] = useState<string>('')
 
-  const PERIOD_OPTIONS: { key: 'week' | 'month' | 'quarter' | 'all'; label: string; short: string }[] = [
+  const PERIOD_OPTIONS: { key: 'week' | 'month' | 'quarter' | 'all' | 'custom'; label: string; short: string }[] = [
     { key: 'week', label: 'Minggu Ini', short: '7H' },
     { key: 'month', label: 'Bulan Ini', short: '1B' },
     { key: 'quarter', label: '3 Bulan Terakhir', short: '3B' },
     { key: 'all', label: 'Semua Waktu', short: 'All' },
+    { key: 'custom', label: 'Kustom', short: 'Cstm' },
   ]
 
-  const periodStart = (() => {
+  const periodRange = (() => {
     const now = new Date()
     if (filterPeriod === 'week') {
-      const d = new Date(now); d.setDate(d.getDate() - 7); return d
+      const d = new Date(now); d.setDate(d.getDate() - 7); return { start: d, end: null }
     }
     if (filterPeriod === 'month') {
-      return new Date(now.getFullYear(), now.getMonth(), 1)
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: null }
     }
     if (filterPeriod === 'quarter') {
-      const d = new Date(now); d.setDate(d.getDate() - 90); return d
+      const d = new Date(now); d.setDate(d.getDate() - 90); return { start: d, end: null }
     }
-    return null // all time
+    if (filterPeriod === 'custom') {
+      return { 
+        start: customStart ? new Date(customStart) : null,
+        end: customEnd ? new Date(customEnd + 'T23:59:59') : null
+      }
+    }
+    return { start: null, end: null } // all time
   })()
 
   const periodLabel = PERIOD_OPTIONS.find(p => p.key === filterPeriod)?.label || 'Bulan Ini'
@@ -127,10 +136,19 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   // ── Data Calculations ──────────────────────────────────────────────────────
 
   // Helper: is a date within the selected period?
-  const inPeriod = (dateStr: string) => {
-    if (!periodStart) return true
-    return new Date(dateStr) >= periodStart
-  }
+  const inPeriod = useCallback((dateStr: string) => {
+    const d = new Date(dateStr)
+    if (periodRange.start && d < periodRange.start) return false
+    if (periodRange.end && d > periodRange.end) return false
+    return true
+  }, [periodRange])
+
+  const filteredOpportunities = useMemo(() => {
+    return opportunities.filter(opty => {
+      const dateToUse = opty.updated_at || opty.created_at
+      return inPeriod(dateToUse)
+    })
+  }, [opportunities, inPeriod])
 
   let activeMrr = 0
   let activeOtc = 0
@@ -142,8 +160,6 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
 
   let wonCount = 0
   let lostCount = 0
-  let wonCountInPeriod = 0
-  let lostCountInPeriod = 0
   let lostValueInPeriod = 0
   let activeCount = 0
 
@@ -151,25 +167,18 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   const wonInPeriodDeals: any[] = []
   const lostInPeriodDeals: any[] = []
 
-  opportunities.forEach(opty => {
+  filteredOpportunities.forEach(opty => {
     const { mrr, otc, tcv } = getRevenueSplit(opty)
-    const closedDate = opty.updated_at || opty.created_at
     if (opty.stage === 'Won') {
       wonCount++
-      if (inPeriod(closedDate)) {
-        wonCountInPeriod++
-        accruedMrr += mrr
-        accruedOtc += otc
-        accruedTcv += tcv
-        wonInPeriodDeals.push(opty)
-      }
+      accruedMrr += mrr
+      accruedOtc += otc
+      accruedTcv += tcv
+      wonInPeriodDeals.push(opty)
     } else if (opty.stage === 'Lost') {
       lostCount++
-      if (inPeriod(closedDate)) {
-        lostCountInPeriod++
-        lostValueInPeriod += tcv
-        lostInPeriodDeals.push(opty)
-      }
+      lostValueInPeriod += tcv
+      lostInPeriodDeals.push(opty)
     } else {
       activeMrr += mrr
       activeOtc += otc
@@ -180,9 +189,9 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   })
 
   // Win rate is calculated from deals closed within the period
-  const winRate = wonCountInPeriod + lostCountInPeriod > 0
-    ? Math.round((wonCountInPeriod / (wonCountInPeriod + lostCountInPeriod)) * 100)
-    : (wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0)
+  const winRate = wonCount + lostCount > 0
+    ? Math.round((wonCount / (wonCount + lostCount)) * 100)
+    : 0
 
   const avgDealMrr = activeCount > 0 ? Math.round(activeMrr / activeCount) : 0
   const accruedRevenueMtd = accruedMrr + accruedOtc
@@ -190,7 +199,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
 
   const stageChartData = stages
     .map(stage => {
-      const optys = opportunities.filter(o => o.stage === stage)
+      const optys = filteredOpportunities.filter(o => o.stage === stage)
       const stageTotals = optys.reduce((s, o) => {
         const { mrr, otc, tcv } = getRevenueSplit(o)
         return { mrr: s.mrr + mrr, otc: s.otc + otc, tcv: s.tcv + tcv }
@@ -209,7 +218,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
 
   const pillarData = (() => {
     const pillars: Record<string, { value: number, wonValue: number, activeValue: number, rawDeals: any[] }> = {}
-    opportunities.forEach(opty => {
+    filteredOpportunities.forEach(opty => {
       if (opty.stage === 'Lost') return
       const isWon = opty.stage === 'Won'
       if (opty.opportunity_line_items?.length > 0) {
@@ -240,7 +249,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
 
   const topCustomers = (() => {
     const map: Record<string, { value: number; count: number; industry: string; rawDeals: any[] }> = {}
-    opportunities.forEach(opty => {
+    filteredOpportunities.forEach(opty => {
       if (opty.stage === 'Lost') return
       const tcv = getTCV(opty)
       if (!map[opty.customer_name]) {
@@ -257,7 +266,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   })()
 
   const activeStages = stages.filter(s => s !== 'Won' && s !== 'Lost')
-  const rawStagnant = opportunities
+  const rawStagnant = filteredOpportunities
     .filter(o => activeStages.includes(o.stage))
     .map(opty => {
       const acts = activities.filter(a => a.opportunity_id === opty.id)
@@ -358,7 +367,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
         return acts.length > 0 ? ` Catatan Terakhir: ${acts.join(' | ')}` : ''
       }
 
-      const topDeals = [...opportunities]
+      const topDeals = [...filteredOpportunities]
         .filter(o => o.stage !== 'Lost')
         .sort((a, b) => getRevenueSplit(b).tcv - getRevenueSplit(a).tcv)
         .slice(0, 3)
@@ -420,7 +429,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
           totalOtcPipeline: formatCurrency(activeOtc),
           totalPipelineValue: formatCurrency(activeTcv),
           winRate,
-          rawDealsSummary: opportunities.map(o => {
+          rawDealsSummary: filteredOpportunities.map(o => {
             const { mrr, otc, tcv } = getRevenueSplit(o)
             return {
               name: o.opportunity_name,
@@ -619,17 +628,17 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     {
       label: filterPeriod === 'all' ? 'Total Accrued Revenue' : `Accrued Rev. ${periodLabel}`,
       value: formatCurrency(accruedRevenueMtd),
-      sub: `Booked TCV: ${fmtShort(accruedTcv)} • ${wonCountInPeriod} won`,
+      sub: `Booked TCV: ${fmtShort(accruedTcv)} • ${wonCount} won`,
       icon: CheckCircle2,
       gradient: 'from-emerald-500 to-emerald-600',
       bg: 'bg-emerald-50',
       text: 'text-emerald-600',
       valueCls: 'text-emerald-900',
-      onClick: () => setDrillDownData({ title: 'Accrued Revenue MTD', subtitle: `${wonCountInPeriod} deal won`, deals: wonInPeriodDeals }),
+      onClick: () => setDrillDownData({ title: 'Accrued Revenue MTD', subtitle: `${wonCount} deal won`, deals: wonInPeriodDeals }),
     },
     {
       label: 'Total Opportunities',
-      value: `${opportunities.length}`,
+      value: `${filteredOpportunities.length}`,
       sub: dealsBreakdown || 'tidak ada data',
       icon: Users,
       gradient: 'from-teal-500 to-teal-600',
@@ -640,13 +649,13 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     {
       label: 'Win Rate',
       value: `${winRate}%`,
-      sub: `${wonCountInPeriod} won (${fmtShort(accruedTcv)}) / ${lostCountInPeriod} lost (${fmtShort(lostValueInPeriod)})`,
+      sub: `${wonCount} won (${fmtShort(accruedTcv)}) / ${lostCount} lost (${fmtShort(lostValueInPeriod)})`,
       icon: Target,
       gradient: 'from-violet-500 to-violet-600',
       bg: 'bg-violet-50',
       text: 'text-violet-600',
       valueCls: 'text-violet-900',
-      onClick: () => setDrillDownData({ title: 'Win / Loss Performance', subtitle: `${wonCountInPeriod} Won & ${lostCountInPeriod} Lost deals`, deals: [...wonInPeriodDeals, ...lostInPeriodDeals] }),
+      onClick: () => setDrillDownData({ title: 'Win / Loss Performance', subtitle: `${wonCount} Won & ${lostCount} Lost deals`, deals: [...wonInPeriodDeals, ...lostInPeriodDeals] }),
     },
     {
       label: 'Deals Stagnan (>7 Hari)',
@@ -1093,46 +1102,66 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     >
       {/* ── TOOLBAR ── */}
       <div className={cn(
-        "flex items-center justify-between",
+        "flex flex-wrap items-center justify-between gap-4",
         isFullscreen ? "px-8 pt-6 pb-0 shrink-0" : ""
       )}>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="bg-white px-3 py-1 text-emerald-600 border-emerald-200 shadow-sm">
+        <div className="flex items-center gap-3 shrink-0">
+          <Badge variant="outline" className="bg-white px-3 py-1 text-emerald-600 border-emerald-200 shadow-sm whitespace-nowrap">
             Live Data Mode
           </Badge>
-          <span className="text-sm font-medium text-slate-500">
+          <span className="text-sm font-medium text-slate-500 whitespace-nowrap">
             {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </span>
         </div>
 
-        {/* Period Filter */}
-        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-          {PERIOD_OPTIONS.map(opt => (
-            <button
-              key={opt.key}
-              onClick={() => setFilterPeriod(opt.key)}
-              className={cn(
-                "px-3 py-1 rounded-md text-xs font-semibold transition-all duration-200",
-                filterPeriod === opt.key
-                  ? "bg-white text-indigo-700 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              )}
-            >
-              <span className="hidden sm:inline">{opt.label}</span>
-              <span className="sm:hidden">{opt.short}</span>
-            </button>
-          ))}
+        {/* Period Filter Container */}
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 shrink-0">
+            {PERIOD_OPTIONS.map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setFilterPeriod(opt.key)}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-semibold transition-all duration-200 whitespace-nowrap",
+                  filterPeriod === opt.key
+                    ? "bg-white text-indigo-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                <span className="hidden lg:inline">{opt.label}</span>
+                <span className="lg:hidden">{opt.short}</span>
+              </button>
+            ))}
+          </div>
+
+          {filterPeriod === 'custom' && (
+            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 shadow-sm animate-in fade-in slide-in-from-right-2 shrink-0">
+              <input 
+                type="date" 
+                value={customStart} 
+                onChange={e => setCustomStart(e.target.value)}
+                className="bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-[120px]"
+              />
+              <span className="text-slate-400 text-xs">-</span>
+              <input 
+                type="date" 
+                value={customEnd} 
+                onChange={e => setCustomEnd(e.target.value)}
+                className="bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-[120px]"
+              />
+            </div>
+          )}
         </div>
 
         <Button
           variant="outline"
           size="sm"
           onClick={toggleFullscreen}
-          className="gap-2 bg-white shadow-sm hover:border-emerald-500 transition-colors"
+          className="gap-2 bg-white shadow-sm hover:border-emerald-500 transition-colors shrink-0"
         >
           {isFullscreen
-            ? <><Minimize2 className="h-4 w-4" /> Exit Presentation</>
-            : <><Maximize2 className="h-4 w-4" /> Present Deck</>
+            ? <><Minimize2 className="h-4 w-4" /> Exit</>
+            : <><Maximize2 className="h-4 w-4" /> Present</>
           }
         </Button>
       </div>
