@@ -45,6 +45,25 @@ const getTCV = (opty: any): number => {
   return Number(opty.total_value || 0)
 }
 
+const getRevenueSplit = (opty: any) => {
+  let mrr = 0
+  let otc = 0
+  let tcv = 0
+
+  if (opty.opportunity_line_items?.length > 0) {
+    opty.opportunity_line_items.forEach((item: any) => {
+      const qty = Number(item.quantity) || 1
+      mrr += (Number(item.mrc) || 0) * qty
+      otc += (Number(item.otc) || 0) * qty
+      tcv += Number(item.total_price || 0)
+    })
+  } else {
+    tcv = Number(opty.total_value || 0)
+  }
+
+  return { mrr, otc, tcv }
+}
+
 export function MeetingDeckClient({ opportunities, activities, stages }: {
   opportunities: any[]
   activities: any[]
@@ -61,11 +80,9 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   // AI State
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [generatingAi, setGeneratingAi] = useState(false)
-  const [displayedText, setDisplayedText] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  
+
   // AI Chat State
-  const [chatHistory, setChatHistory] = useState<{role: 'user'|'ai', content: string}[]>([])
+  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'ai', content: string }[]>([])
   const [chatInput, setChatInput] = useState('')
   const [isChatting, setIsChatting] = useState(false)
 
@@ -84,10 +101,10 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   const [filterPeriod, setFilterPeriod] = useState<'week' | 'month' | 'quarter' | 'all'>('month')
 
   const PERIOD_OPTIONS: { key: 'week' | 'month' | 'quarter' | 'all'; label: string; short: string }[] = [
-    { key: 'week',    label: 'Minggu Ini',      short: '7H' },
-    { key: 'month',   label: 'Bulan Ini',       short: '1B' },
+    { key: 'week', label: 'Minggu Ini', short: '7H' },
+    { key: 'month', label: 'Bulan Ini', short: '1B' },
     { key: 'quarter', label: '3 Bulan Terakhir', short: '3B' },
-    { key: 'all',     label: 'Semua Waktu',     short: 'All' },
+    { key: 'all', label: 'Semua Waktu', short: 'All' },
   ]
 
   const periodStart = (() => {
@@ -115,8 +132,14 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     return new Date(dateStr) >= periodStart
   }
 
-  let totalPipelineValue = 0
-  let wonInPeriodValue = 0
+  let activeMrr = 0
+  let activeOtc = 0
+  let activeTcv = 0
+
+  let accruedMrr = 0
+  let accruedOtc = 0
+  let accruedTcv = 0
+
   let wonCount = 0
   let lostCount = 0
   let wonCountInPeriod = 0
@@ -127,20 +150,24 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   const wonInPeriodDeals: any[] = []
 
   opportunities.forEach(opty => {
-    const tcv = getTCV(opty)
+    const { mrr, otc, tcv } = getRevenueSplit(opty)
     const closedDate = opty.updated_at || opty.created_at
     if (opty.stage === 'Won') {
       wonCount++
       if (inPeriod(closedDate)) {
         wonCountInPeriod++
-        wonInPeriodValue += tcv
+        accruedMrr += mrr
+        accruedOtc += otc
+        accruedTcv += tcv
         wonInPeriodDeals.push(opty)
       }
     } else if (opty.stage === 'Lost') {
       lostCount++
       if (inPeriod(closedDate)) lostCountInPeriod++
     } else {
-      totalPipelineValue += tcv
+      activeMrr += mrr
+      activeOtc += otc
+      activeTcv += tcv
       activeCount++
       activePipelineDeals.push(opty)
     }
@@ -151,38 +178,56 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     ? Math.round((wonCountInPeriod / (wonCountInPeriod + lostCountInPeriod)) * 100)
     : (wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0)
 
-  const avgDealSize = activeCount > 0 ? Math.round(totalPipelineValue / activeCount) : 0
+  const avgDealMrr = activeCount > 0 ? Math.round(activeMrr / activeCount) : 0
+  const accruedRevenueMtd = accruedMrr + accruedOtc
+  const recurringRatio = activeTcv > 0 ? Math.round((activeMrr * 12 / activeTcv) * 100) : 0
 
   const stageChartData = stages
     .map(stage => {
       const optys = opportunities.filter(o => o.stage === stage)
-      const value = optys.reduce((s, o) => s + getTCV(o), 0)
-      return { name: stage, value, count: optys.length, rawDeals: optys }
+      const stageTotals = optys.reduce((s, o) => {
+        const { mrr, otc, tcv } = getRevenueSplit(o)
+        return { mrr: s.mrr + mrr, otc: s.otc + otc, tcv: s.tcv + tcv }
+      }, { mrr: 0, otc: 0, tcv: 0 })
+
+      return {
+        name: stage,
+        mrr: stageTotals.mrr,
+        otc: stageTotals.otc,
+        tcv: stageTotals.tcv,
+        count: optys.length,
+        rawDeals: optys
+      }
     })
-    .filter(d => d.value > 0)
+    .filter(d => d.count > 0 && d.name !== 'Lost')
 
   const pillarData = (() => {
-    const pillars: Record<string, { value: number, rawDeals: any[] }> = {}
+    const pillars: Record<string, { value: number, wonValue: number, activeValue: number, rawDeals: any[] }> = {}
     opportunities.forEach(opty => {
-      if (opty.stage === 'Won' || opty.stage === 'Lost') return
+      if (opty.stage === 'Lost') return
+      const isWon = opty.stage === 'Won'
       if (opty.opportunity_line_items?.length > 0) {
         opty.opportunity_line_items.forEach((item: any) => {
           const p = item.pillar || 'Other'
-          if (!pillars[p]) pillars[p] = { value: 0, rawDeals: [] }
-          pillars[p].value += (item.total_price || 0)
+          if (!pillars[p]) pillars[p] = { value: 0, wonValue: 0, activeValue: 0, rawDeals: [] }
+          const val = (item.total_price || 0)
+          pillars[p].value += val
+          if (isWon) pillars[p].wonValue += val; else pillars[p].activeValue += val
           if (!pillars[p].rawDeals.find(d => d.id === opty.id)) {
             pillars[p].rawDeals.push(opty)
           }
         })
       } else {
         const p = 'Uncategorized'
-        if (!pillars[p]) pillars[p] = { value: 0, rawDeals: [] }
-        pillars[p].value += Number(opty.total_value || 0)
+        if (!pillars[p]) pillars[p] = { value: 0, wonValue: 0, activeValue: 0, rawDeals: [] }
+        const val = Number(opty.total_value || 0)
+        pillars[p].value += val
+        if (isWon) pillars[p].wonValue += val; else pillars[p].activeValue += val
         pillars[p].rawDeals.push(opty)
       }
     })
     return Object.entries(pillars)
-      .map(([name, data]) => ({ name, value: data.value, rawDeals: data.rawDeals }))
+      .map(([name, data]) => ({ name, value: data.value, wonValue: data.wonValue, activeValue: data.activeValue, rawDeals: data.rawDeals }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value)
   })()
@@ -190,7 +235,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   const topCustomers = (() => {
     const map: Record<string, { value: number; count: number; industry: string; rawDeals: any[] }> = {}
     opportunities.forEach(opty => {
-      if (opty.stage === 'Won' || opty.stage === 'Lost') return
+      if (opty.stage === 'Lost') return
       const tcv = getTCV(opty)
       if (!map[opty.customer_name]) {
         map[opty.customer_name] = { value: 0, count: 0, industry: opty.customer_industry || 'N/A', rawDeals: [] }
@@ -223,24 +268,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     return true
   })
 
-  // ── Typing Effect ──────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (!aiSummary) return
-    setDisplayedText('')
-    setIsTyping(true)
-    let i = 0
-    const iv = setInterval(() => {
-      if (i < aiSummary.length) {
-        setDisplayedText(prev => prev + aiSummary[i])
-        i++
-      } else {
-        clearInterval(iv)
-        setIsTyping(false)
-      }
-    }, 16)
-    return () => clearInterval(iv)
-  }, [aiSummary])
 
   // ── Slide Navigation ───────────────────────────────────────────────────────
 
@@ -299,7 +327,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
         notes: activityNote.trim()
       }])
       if (error) throw error
-      
+
       setLogActivityOpty(null)
       setActivityNote('')
       router.refresh() // Refresh the server data to remove the deal from hot seat
@@ -315,25 +343,40 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   const handleGenerateSummary = async () => {
     setGeneratingAi(true)
     try {
+      const getActivityNotes = (optyId: string) => {
+        const acts = activities
+          .filter(a => a.opportunity_id === optyId)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 2)
+          .map(a => `[${new Date(a.created_at).toLocaleDateString()}] ${a.notes}`)
+        return acts.length > 0 ? ` Catatan Terakhir: ${acts.join(' | ')}` : ''
+      }
+
       const topDeals = [...opportunities]
         .filter(o => o.stage !== 'Lost')
-        .sort((a, b) => getTCV(b) - getTCV(a))
+        .sort((a, b) => getRevenueSplit(b).tcv - getRevenueSplit(a).tcv)
         .slice(0, 3)
-        .map(o => `${o.opportunity_name} (${o.customer_name}, ${o.stage}, ${formatCurrency(getTCV(o))})`)
+        .map(o => {
+          const { mrr, otc } = getRevenueSplit(o)
+          return `${o.opportunity_name} (${o.customer_name}, ${o.stage}, MRR: ${formatCurrency(mrr)}, OTC: ${formatCurrency(otc)}).${getActivityNotes(o.id)}`
+        })
 
       const payload = {
         period: periodLabel,
-        totalPipelineValue: formatCurrency(totalPipelineValue),
-        wonThisMonthValue: formatCurrency(wonInPeriodValue),
+        accruedRevenueMtd: formatCurrency(accruedRevenueMtd),
+        totalMrrPipeline: formatCurrency(activeMrr),
+        totalOtcPipeline: formatCurrency(activeOtc),
+        totalPipelineValue: formatCurrency(activeTcv),
         winRate,
-        activeDeals: activeCount,
-        avgDealSize: formatCurrency(avgDealSize),
+        recurringRatio,
         stagnantDealsCount: rawStagnant.filter(d => d.daysStagnant >= 7).length,
         topStagnantDeals: rawStagnant.slice(0, 3).map(d =>
-          `${d.opportunity_name} (${d.stage}, ${d.daysStagnant} hari, ${formatCurrency(d.tcv)})`
+          `${d.opportunity_name} (${d.stage}, ${d.daysStagnant} hari stagnan, MRR: ${formatCurrency(getRevenueSplit(d).mrr)}).${getActivityNotes(d.id)}`
         ),
         topDeals,
-        stageBreakdown: stageChartData.map(s => `${s.name}: ${s.count} deals = ${formatCurrency(s.value)}`),
+        stageBreakdown: stageChartData.map(s => `${s.name}: ${s.count} deals = MRR ${formatCurrency(s.mrr)}`),
+        pillarBreakdown: pillarData.map(p => `${p.name}: ${formatCurrency(p.value)}`),
+        topCustomers: topCustomers.slice(0, 3).map(c => `${c.name} (${c.count} deals, TCV: ${formatCurrency(c.value)})`),
       }
 
       const res = await fetch('/api/ai/meeting-summary', {
@@ -366,16 +409,23 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
         context: {
           period: periodLabel,
           activeDeals: activeCount,
-          wonThisMonthValue: formatCurrency(wonInPeriodValue),
-          totalPipelineValue: formatCurrency(totalPipelineValue),
+          accruedRevenueMtd: formatCurrency(accruedRevenueMtd),
+          totalMrrPipeline: formatCurrency(activeMrr),
+          totalOtcPipeline: formatCurrency(activeOtc),
+          totalPipelineValue: formatCurrency(activeTcv),
           winRate,
-          rawDealsSummary: opportunities.map(o => ({
-            name: o.opportunity_name,
-            customer: o.customer_name,
-            stage: o.stage,
-            value: formatCurrency(getTCV(o)),
-            daysStagnant: o.stage !== 'Won' && o.stage !== 'Lost' ? Math.floor((Date.now() - new Date(o.updated_at || o.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
-          }))
+          rawDealsSummary: opportunities.map(o => {
+            const { mrr, otc, tcv } = getRevenueSplit(o)
+            return {
+              name: o.opportunity_name,
+              customer: o.customer_name,
+              stage: o.stage,
+              mrr: formatCurrency(mrr),
+              otc: formatCurrency(otc),
+              tcv: formatCurrency(tcv),
+              daysStagnant: o.stage !== 'Won' && o.stage !== 'Lost' ? Math.floor((Date.now() - new Date(o.updated_at || o.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
+            }
+          })
         }
       }
 
@@ -384,7 +434,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      
+
       const data = await res.json()
       if (res.ok) {
         setChatHistory([...newHistory, { role: 'ai', content: data.reply }])
@@ -401,8 +451,8 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   // ── Slide Definitions ──────────────────────────────────────────────────────
 
   const SLIDES = [
-    { title: 'Pipeline KPIs', icon: Target },
-    { title: 'Pipeline Analysis', icon: BarChart3 },
+    { title: 'Deals & Revenue Overview', icon: Target },
+    { title: 'Deals Analysis', icon: BarChart3 },
     { title: 'Top Accounts', icon: Users },
     { title: 'Hot Seat', icon: AlertTriangle },
     { title: 'Executive Summary', icon: Sparkles },
@@ -458,13 +508,12 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       "flex-1 bg-white p-5 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 text-slate-700 whitespace-pre-wrap",
                       isFullscreen ? "text-lg leading-relaxed" : "text-base"
                     )}>
-                      {displayedText}
-                      {isTyping && <span className="inline-block w-0.5 h-5 bg-indigo-500 ml-1 animate-pulse align-middle" />}
+                      {aiSummary}
                     </div>
                   </div>
 
                   {/* Chat History */}
-                  {!isTyping && chatHistory.map((msg, idx) => (
+                  {chatHistory.map((msg, idx) => (
                     <div key={idx} className={cn("flex gap-4", msg.role === 'user' ? "flex-row-reverse" : "")}>
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1",
@@ -474,8 +523,8 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       </div>
                       <div className={cn(
                         "max-w-[85%] p-4 rounded-2xl shadow-sm whitespace-pre-wrap",
-                        msg.role === 'user' 
-                          ? "bg-indigo-600 text-white rounded-tr-none" 
+                        msg.role === 'user'
+                          ? "bg-indigo-600 text-white rounded-tr-none"
                           : "bg-white border border-slate-100 text-slate-700 rounded-tl-none",
                         isFullscreen ? "text-lg" : "text-sm"
                       )}>
@@ -483,7 +532,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       </div>
                     </div>
                   ))}
-                  
+
                   {isChatting && (
                     <div className="flex gap-4">
                       <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 mt-1">
@@ -498,11 +547,10 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                   )}
                 </div>
               </ScrollArea>
-              
+
               {/* Chat Input */}
-              {!isTyping && (
-                <div className="p-4 bg-white border-t border-slate-100 shrink-0">
-                  <form onSubmit={handleSendChatMessage} className="relative flex items-center">
+              <div className="p-4 bg-white border-t border-slate-100 shrink-0">
+                <form onSubmit={handleSendChatMessage} className="relative flex items-center">
                     <Input
                       placeholder="Tanya AI tentang pipeline ini..."
                       value={chatInput}
@@ -510,17 +558,16 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       className={cn("pr-12 rounded-full bg-slate-50 border-slate-200 focus-visible:ring-indigo-500", isFullscreen ? "h-14 text-lg px-6" : "h-10")}
                       disabled={isChatting}
                     />
-                    <Button 
-                      type="submit" 
-                      size="icon" 
+                    <Button
+                      type="submit"
+                      size="icon"
                       className={cn("absolute right-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700", isFullscreen ? "h-11 w-11" : "h-7 w-7 right-1.5")}
                       disabled={isChatting || !chatInput.trim()}
                     >
                       <Send className={cn(isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5", "ml-0.5")} />
                     </Button>
                   </form>
-                </div>
-              )}
+              </div>
             </div>
           ) : (
             <div className="h-full flex items-center justify-center p-6">
@@ -535,29 +582,54 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     </div>
   )
 
-  // SLIDE 1 — KPIs
+  const dealsBreakdown = [
+    { name: 'Won', count: wonCount },
+    ...stageChartData.filter(s => s.name !== 'Won' && s.name !== 'Lost' && s.count > 0).map(s => ({ name: s.name, count: s.count })),
+    { name: 'Lost', count: lostCount }
+  ].filter(d => d.count > 0).map(d => `${d.count} ${d.name.toLowerCase()}`).join(' • ')
+
   const kpis = [
     {
-      label: 'Total Pipeline Aktif',
-      value: formatCurrency(totalPipelineValue),
-      sub: `${activeCount} deals berjalan`,
+      label: 'MRR Pipeline Aktif',
+      value: formatCurrency(activeMrr),
+      sub: `TCV: ${fmtShort(activeTcv)} • ${activeCount} deals`,
       icon: DollarSign,
       gradient: 'from-blue-500 to-blue-600',
       bg: 'bg-blue-50',
       text: 'text-blue-600',
       valueCls: 'text-blue-900',
-      onClick: () => setDrillDownData({ title: 'Total Pipeline Aktif', subtitle: `${activeCount} deals berjalan`, deals: activePipelineDeals }),
+      onClick: () => setDrillDownData({ title: 'MRR Pipeline Aktif', subtitle: `${activeCount} deals berjalan`, deals: activePipelineDeals }),
     },
     {
-      label: bookedLabel,
-      value: formatCurrency(wonInPeriodValue),
-      sub: `${wonCountInPeriod} deal won ${periodStart ? `(${periodLabel.toLowerCase()})` : ''}`,
+      label: 'Total OTC Pipeline',
+      value: formatCurrency(activeOtc),
+      sub: 'One-Time Charge potensial',
+      icon: Sparkles,
+      gradient: 'from-fuchsia-500 to-pink-500',
+      bg: 'bg-fuchsia-50',
+      text: 'text-fuchsia-600',
+      valueCls: 'text-fuchsia-900',
+    },
+    {
+      label: filterPeriod === 'all' ? 'Total Accrued Revenue' : `Accrued Rev. ${periodLabel}`,
+      value: formatCurrency(accruedRevenueMtd),
+      sub: `Booked TCV: ${fmtShort(accruedTcv)} • ${wonCountInPeriod} won`,
       icon: CheckCircle2,
       gradient: 'from-emerald-500 to-emerald-600',
       bg: 'bg-emerald-50',
       text: 'text-emerald-600',
       valueCls: 'text-emerald-900',
-      onClick: () => setDrillDownData({ title: bookedLabel, subtitle: `${wonCountInPeriod} deal won`, deals: wonInPeriodDeals }),
+      onClick: () => setDrillDownData({ title: 'Accrued Revenue MTD', subtitle: `${wonCountInPeriod} deal won`, deals: wonInPeriodDeals }),
+    },
+    {
+      label: 'Total Opportunities',
+      value: `${opportunities.length}`,
+      sub: dealsBreakdown || 'tidak ada data',
+      icon: Users,
+      gradient: 'from-teal-500 to-teal-600',
+      bg: 'bg-teal-50',
+      text: 'text-teal-600',
+      valueCls: 'text-teal-900',
     },
     {
       label: 'Win Rate',
@@ -570,37 +642,31 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
       valueCls: 'text-violet-900',
     },
     {
-      label: 'Avg Deal Size',
-      value: formatCurrency(avgDealSize),
-      sub: 'rata-rata per deal aktif',
-      icon: TrendingUp,
+      label: 'Deals Stagnan (>7 Hari)',
+      value: `${rawStagnant.filter(d => d.daysStagnant >= 7).length}`,
+      sub: 'butuh perhatian teknis',
+      icon: AlertTriangle,
       gradient: 'from-amber-500 to-orange-500',
       bg: 'bg-amber-50',
       text: 'text-amber-600',
       valueCls: 'text-amber-900',
-    },
-    {
-      label: 'Total Opportunities',
-      value: `${activeCount}`,
-      sub: 'dalam pipeline aktif',
-      icon: Users,
-      gradient: 'from-teal-500 to-teal-600',
-      bg: 'bg-teal-50',
-      text: 'text-teal-600',
-      valueCls: 'text-teal-900',
+      onClick: () => {
+        setHotSeatFilter('7');
+        goTo(3, 'next'); // Go to Hot Seat slide
+      }
     },
   ]
 
   const KpiCard = ({ kpi, large }: { kpi: typeof kpis[0] & { onClick?: () => void }; large?: boolean }) => {
     const Icon = kpi.icon
     return (
-      <div 
+      <div
         onClick={kpi.onClick}
         className={cn(
-        "rounded-2xl border border-slate-100 shadow-sm overflow-hidden",
-        kpi.onClick ? "cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 transition-all" : "hover:shadow-md transition-shadow",
-        kpi.bg
-      )}>
+          "rounded-2xl border border-slate-100 shadow-sm overflow-hidden",
+          kpi.onClick ? "cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 transition-all" : "hover:shadow-md transition-shadow",
+          kpi.bg
+        )}>
         <div className={cn("h-1.5 w-full bg-gradient-to-r", kpi.gradient)} />
         <div className={cn(isFullscreen ? (large ? "p-8" : "p-7") : "p-5")}>
           <div className="flex items-center justify-between mb-4">
@@ -626,18 +692,17 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     <div className={cn("h-full flex flex-col justify-center", isFullscreen ? "p-12 gap-8" : "p-8 gap-6")}>
       <div>
         <h2 className={cn("font-bold text-slate-900", isFullscreen ? "text-4xl" : "text-xl")}>
-          Pipeline KPIs
+          Deals & Revenue Overview
         </h2>
         <p className={cn("text-slate-500 mt-1", isFullscreen ? "text-xl" : "text-sm")}>
-          Snapshot performa pipeline saat ini
+          Snapshot performa pipeline dan hasil (revenue) saat ini
         </p>
       </div>
-      {/* Row 1: 3 cards */}
+      {/* Row 1 & 2: 3 cards each */}
       <div className="grid grid-cols-3 gap-4">
         {kpis.slice(0, 3).map((kpi, i) => <KpiCard key={i} kpi={kpi} large />)}
       </div>
-      {/* Row 2: 2 cards centered */}
-      <div className="grid grid-cols-2 gap-4 max-w-2xl w-full mx-auto">
+      <div className="grid grid-cols-3 gap-4 mt-4">
         {kpis.slice(3).map((kpi, i) => <KpiCard key={i} kpi={kpi} />)}
       </div>
     </div>
@@ -648,10 +713,10 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     <div className={cn("h-full flex flex-col", isFullscreen ? "p-12 gap-6" : "p-8 gap-5")}>
       <div>
         <h2 className={cn("font-bold text-slate-900", isFullscreen ? "text-4xl" : "text-xl")}>
-          Pipeline Analysis
+          Deals Analysis
         </h2>
         <p className={cn("text-slate-500 mt-1", isFullscreen ? "text-xl" : "text-sm")}>
-          Distribusi nilai pipeline per stage dan komposisi produk
+          Distribusi total nilai (termasuk Won) dan komposisi produk
         </p>
       </div>
       <div className="grid md:grid-cols-2 gap-5 flex-1">
@@ -659,7 +724,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
         <Card className="shadow-sm border-slate-200/60">
           <CardHeader className="pb-2">
             <CardTitle className={cn("font-semibold text-slate-700", isFullscreen ? "text-lg" : "text-sm")}>
-              Nilai Pipeline per Stage
+              Distribusi Total Deal
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -681,16 +746,26 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                     width={65}
                   />
                   <Tooltip
-                    formatter={(value: any) => [formatCurrency(Number(value)), 'Nilai']}
-                    contentStyle={{
-                      borderRadius: '10px',
-                      border: 'none',
-                      boxShadow: '0 8px 24px rgb(0 0 0 / 0.12)',
-                      fontSize: '13px'
+                    content={({ active, payload }: any) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload
+                        return (
+                          <div className="bg-white p-3 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12)] border border-slate-100">
+                            <p className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{data.name} <span className="text-slate-400 font-normal text-xs">({data.count} deals)</span></p>
+                            <div className="space-y-1 text-sm">
+                              <p className="text-emerald-600 font-semibold flex justify-between gap-4"><span className="text-slate-500 font-medium">MRR</span> {formatCurrency(data.mrr)}</p>
+                              <p className="text-indigo-600 font-semibold flex justify-between gap-4"><span className="text-slate-500 font-medium">OTC</span> {formatCurrency(data.otc)}</p>
+                              <p className="text-slate-600 font-semibold flex justify-between gap-4"><span className="text-slate-500 font-medium">TCV</span> {formatCurrency(data.tcv)}</p>
+                            </div>
+                          </div>
+                        )
+                      }
+                      return null
                     }}
+                    cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                   />
                   <Bar
-                    dataKey="value"
+                    dataKey="mrr"
                     fill="#10b981"
                     radius={[5, 5, 0, 0]}
                     barSize={40}
@@ -745,13 +820,32 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(v: any) => [formatCurrency(Number(v)), 'Nilai']}
-                      contentStyle={{
-                        borderRadius: '10px',
-                        border: 'none',
-                        boxShadow: '0 8px 24px rgb(0 0 0 / 0.12)',
-                        fontSize: '13px'
+                      content={({ active, payload }: any) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload.payload || payload[0].payload;
+                          return (
+                            <div className="bg-white p-3.5 rounded-xl shadow-lg border border-slate-100 min-w-[200px]">
+                              <p className="font-semibold text-slate-800 mb-2">{data.name}</p>
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between gap-4 text-sm">
+                                  <span className="text-slate-500">Aktif (Pipeline):</span>
+                                  <span className="font-medium text-slate-700">{formatCurrency(data.activeValue)}</span>
+                                </div>
+                                <div className="flex justify-between gap-4 text-sm">
+                                  <span className="text-emerald-600 font-medium">Won (Booked):</span>
+                                  <span className="font-semibold text-emerald-600">{formatCurrency(data.wonValue)}</span>
+                                </div>
+                                <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between gap-4 text-sm">
+                                  <span className="font-semibold text-slate-600">Total Nilai:</span>
+                                  <span className="font-bold text-indigo-600">{formatCurrency(data.value)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        }
+                        return null;
                       }}
+                      cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                     />
                   </RechartsPieChart>
                 </ResponsiveContainer>
@@ -800,8 +894,8 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
               <div className="p-8 text-center text-slate-400">Belum ada data customer aktif.</div>
             ) : (
               topCustomers.map((c, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   onClick={() => setDrillDownData({ title: `Account: ${c.name}`, subtitle: `${c.count} active deals`, deals: c.rawDeals })}
                   className={cn("px-6 hover:bg-slate-50 transition-colors cursor-pointer group", isFullscreen ? "py-5" : "py-4")}
                 >
@@ -907,8 +1001,8 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       opty.daysStagnant > 14
                         ? "bg-red-100 text-red-700"
                         : opty.daysStagnant > 7
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-slate-100 text-slate-600"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-slate-100 text-slate-600"
                     )}>
                       <span className={cn("leading-none", isFullscreen ? "text-2xl" : "text-lg")}>
                         {opty.daysStagnant}
@@ -1053,8 +1147,8 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       i === currentSlide
                         ? "bg-indigo-600 text-white shadow-sm scale-105"
                         : i < currentSlide
-                        ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
-                        : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
+                          : "bg-slate-100 text-slate-400 hover:bg-slate-200"
                     )}
                   >
                     <Icon className="h-3.5 w-3.5" />
@@ -1083,9 +1177,9 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                 "h-full transition-all duration-250 ease-in-out",
                 isTransitioning
                   ? cn(
-                      "opacity-0",
-                      slideDirection === 'next' ? "translate-x-6" : "-translate-x-6"
-                    )
+                    "opacity-0",
+                    slideDirection === 'next' ? "translate-x-6" : "-translate-x-6"
+                  )
                   : "opacity-100 translate-x-0"
               )}
             >
@@ -1160,16 +1254,18 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
               <Table>
                 <TableHeader className="bg-slate-50/50 sticky top-0 z-10 shadow-sm border-b border-slate-100">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[35%] py-4 pl-6 font-semibold text-slate-600">Opportunity</TableHead>
+                    <TableHead className="w-[30%] py-4 pl-6 font-semibold text-slate-600">Opportunity</TableHead>
                     <TableHead className="font-semibold text-slate-600">Customer</TableHead>
                     <TableHead className="font-semibold text-slate-600">Stage</TableHead>
-                    <TableHead className="text-right pr-6 font-semibold text-slate-600">Value (TCV)</TableHead>
+                    <TableHead className="text-right font-semibold text-slate-600">MRR</TableHead>
+                    <TableHead className="text-right font-semibold text-slate-600">OTC</TableHead>
+                    <TableHead className="text-right pr-6 font-semibold text-slate-600">TCV</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!drillDownData?.deals?.length ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-32 text-center text-slate-400">
+                      <TableCell colSpan={6} className="h-32 text-center text-slate-400">
                         Tidak ada data yang relevan.
                       </TableCell>
                     </TableRow>
@@ -1186,14 +1282,20 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                           <Badge variant="outline" className={cn(
                             "font-medium tracking-tight",
                             deal.stage === 'Won' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                            deal.stage === 'Lost' ? "bg-rose-50 text-rose-700 border-rose-200" :
-                            "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              deal.stage === 'Lost' ? "bg-rose-50 text-rose-700 border-rose-200" :
+                                "bg-indigo-50 text-indigo-700 border-indigo-200"
                           )}>
                             {deal.stage}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-slate-700 pr-6">
-                          {formatCurrency(getTCV(deal))}
+                        <TableCell className="text-right font-medium text-slate-700 whitespace-nowrap">
+                          {formatCurrency(getRevenueSplit(deal).mrr)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-slate-700 whitespace-nowrap">
+                          {formatCurrency(getRevenueSplit(deal).otc)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-slate-700 pr-6 whitespace-nowrap">
+                          {formatCurrency(getRevenueSplit(deal).tcv)}
                         </TableCell>
                       </TableRow>
                     ))

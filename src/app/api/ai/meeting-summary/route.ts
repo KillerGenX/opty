@@ -13,52 +13,66 @@ export async function POST(req: Request) {
     const payload = await req.json()
     const {
       period,
+      accruedRevenueMtd,
+      totalMrrPipeline,
+      totalOtcPipeline,
       totalPipelineValue,
-      wonThisMonthValue,
       winRate,
-      activeDeals,
-      avgDealSize,
+      recurringRatio,
       stagnantDealsCount,
       topStagnantDeals,
       topDeals,
       stageBreakdown,
+      pillarBreakdown,
+      topCustomers,
     } = payload
 
     const periodLabel = period || 'Bulan Ini'
 
-    const prompt = `Anda adalah seorang Presales Director AI yang berpengalaman. Tugas Anda adalah menulis "Executive Summary" berisi 2 paragraf singkat namun padat dalam Bahasa Indonesia untuk rapat manajemen.
+    const prompt = `Anda adalah seorang Presales / Enterprise Solution Director yang sedang memberikan laporan "Executive Brief" kepada jajaran Manajemen.
+Fokus Anda adalah mengawal kesiapan teknis dari setiap peluang bisnis (seperti kelancaran PoC, kelengkapan spesifikasi/sizing, dan deteksi hambatan teknis). Anda harus menyampaikannya dalam bahasa bisnis/eksekutif yang natural, mengalir, dan mudah dicerna oleh manajemen non-teknis. Hindari penggunaan jargon teknis yang kaku, bersayap, atau berlebihan (buzzwords).
 
 PERIODE ANALISIS: ${periodLabel}
 
-DATA PIPELINE REAL-TIME:
-- Total Pipeline Aktif (semua deals berjalan): ${totalPipelineValue}
-- Total ${activeDeals} deals aktif, rata-rata nilai per deal: ${avgDealSize}
-- Booked ${periodLabel}: ${wonThisMonthValue}
-- Win Rate periode ${periodLabel}: ${winRate}%
-- Deals Stagnan (>7 hari tanpa update): ${stagnantDealsCount} deals
+KESEHATAN FINANSIAL PIPELINE:
+- MRR Pipeline Aktif (Recurring): ${totalMrrPipeline} per bulan
+- OTC Pipeline Aktif (One-Time): ${totalOtcPipeline}
+- Total TCV Pipeline: ${totalPipelineValue}
+- Accrued Revenue (MTD): ${accruedRevenueMtd}
+- Recurring Ratio (MRR vs TCV): ${recurringRatio}%
+- Win Rate (${periodLabel}): ${winRate}%
+- Deals Membutuhkan Perhatian (>7 hari stagnan): ${stagnantDealsCount} deals
 
-TOP 3 DEALS TERBESAR:
+TOP 3 DEALS TERBESAR (Peluang Utama):
 ${(topDeals || []).map((d: string) => `- ${d}`).join('\n')}
 
-DISTRIBUSI PER STAGE:
-${(stageBreakdown || []).map((s: string) => `- ${s}`).join('\n')}
-${stagnantDealsCount > 0 ? `\nDEALS YANG PERLU PERHATIAN:\n${(topStagnantDeals || []).map((d: string) => `- ${d}`).join('\n')}` : ''}
+DEALS YANG STAGNAN (Risiko Teknis/Implementasi):
+${(topStagnantDeals || []).map((d: string) => `- ${d}`).join('\n')}
+
+DISTRIBUSI PRODUK / SOLUSI:
+${(pillarBreakdown || []).map((p: string) => `- ${p}`).join('\n')}
+
+TOP CUSTOMERS:
+${(topCustomers || []).map((c: string) => `- ${c}`).join('\n')}
 
 ATURAN PENULISAN:
-1. Jangan gunakan salam pembuka (tidak perlu "Selamat pagi", "Bapak/Ibu").
-2. Langsung mulai dengan analisis objektif tentang kondisi pipeline.
-3. Sebutkan periode analisis (${periodLabel}) secara natural di awal narasi.
-4. Paragraf pertama: rangkum kondisi pipeline secara keseluruhan (total nilai, distribusi, deals terbesar).
-5. Paragraf kedua: soroti risiko (deals stagnan) dengan nada profesional dan rekomendasi aksi konkret. Jika tidak ada yang stagnan, nyatakan bahwa pipeline bergerak sehat.
-6. Jangan gunakan format markdown (bold, italic). Tulis seperti laporan eksekutif.
-7. KRITIS: Pastikan kalimat terakhir selesai dengan sempurna dan diakhiri tanda baca. Jangan memotong kalimat.`
+1. DILARANG KERAS menggunakan salam pembuka (seperti "Selamat pagi", "Bapak/Ibu sekalian"). Langsung mulai ke baris pertama tanpa basa-basi.
+2. Format laporan HANYA dalam bentuk 3 poin utama yang sangat singkat, padat, dan langsung ke inti. JANGAN membuat narasi panjang. Gunakan angka (1, 2, 3) untuk poin Anda:
+   - Poin 1 (Executive Overview): Tinjauan kesehatan pipeline dari kacamata operasional dan dampaknya pada potensi pendapatan.
+   - Poin 2 (Deal Intelligence): Soroti Top Deals dan Deals Stagnan berdasarkan "Catatan Terakhir". Beritahu secara gamblang apa yang menahan deal tersebut.
+   - Poin 3 (Strategic Action Plan): Berikan 2 instruksi operasional singkat untuk tim Anda minggu ini agar deal tidak mandek.
+3. Gunakan sudut pandang orang pertama jamak ("Kami"). Anda mewakili tim Anda sendiri.
+4. Gunakan nada profesional namun luwes. JANGAN gunakan istilah teknis atau singkatan bahasa Inggris (seperti "PoC", "Proof of Concept", "deep-dive", "sizing"). Gunakan bahasa Indonesia yang umum seperti "uji coba", "penilaian kebutuhan", atau "persiapan teknis".
+5. Masukkan angka-angka penting (seperti MRR dan Win Rate) ke dalam poin-poin tersebut.
+6. DILARANG KERAS menggunakan format markdown (seperti bintang ganda ** atau tunggal * untuk tebal/miring). Tulis jawaban sebagai plain text murni. Gunakan spasi enter untuk memisahkan poin.
+
+Tulis Executive Brief Anda:`
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        temperature: 0.4,
-        maxOutputTokens: 1200,
+        temperature: 0.7,
       }
     })
 
