@@ -7,10 +7,17 @@ import { Badge } from "@/components/ui/badge"
 import {
   ChevronLeft, ChevronRight, Maximize2, Minimize2, Sparkles,
   AlertTriangle, CheckCircle2, Loader2, ArrowRight, TrendingUp,
-  DollarSign, Target, Users, BarChart3
+  DollarSign, Target, Users, BarChart3, PenSquare, Send
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell
@@ -48,81 +55,149 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next')
   const [isTransitioning, setIsTransitioning] = useState(false)
   const deckRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+  const supabase = createClient()
 
   // AI State
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [generatingAi, setGeneratingAi] = useState(false)
   const [displayedText, setDisplayedText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  
+  // AI Chat State
+  const [chatHistory, setChatHistory] = useState<{role: 'user'|'ai', content: string}[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [isChatting, setIsChatting] = useState(false)
 
   // Hot Seat Filter
   const [hotSeatFilter, setHotSeatFilter] = useState<'all' | '7' | '14'>('all')
 
+  // Drill-down State
+  const [drillDownData, setDrillDownData] = useState<{ title: string, subtitle?: string, deals: any[] } | null>(null)
+
+  // Hot Seat Log Activity State
+  const [logActivityOpty, setLogActivityOpty] = useState<any>(null)
+  const [activityNote, setActivityNote] = useState('')
+  const [isLogging, setIsLogging] = useState(false)
+
+  // Period Filter
+  const [filterPeriod, setFilterPeriod] = useState<'week' | 'month' | 'quarter' | 'all'>('month')
+
+  const PERIOD_OPTIONS: { key: 'week' | 'month' | 'quarter' | 'all'; label: string; short: string }[] = [
+    { key: 'week',    label: 'Minggu Ini',      short: '7H' },
+    { key: 'month',   label: 'Bulan Ini',       short: '1B' },
+    { key: 'quarter', label: '3 Bulan Terakhir', short: '3B' },
+    { key: 'all',     label: 'Semua Waktu',     short: 'All' },
+  ]
+
+  const periodStart = (() => {
+    const now = new Date()
+    if (filterPeriod === 'week') {
+      const d = new Date(now); d.setDate(d.getDate() - 7); return d
+    }
+    if (filterPeriod === 'month') {
+      return new Date(now.getFullYear(), now.getMonth(), 1)
+    }
+    if (filterPeriod === 'quarter') {
+      const d = new Date(now); d.setDate(d.getDate() - 90); return d
+    }
+    return null // all time
+  })()
+
+  const periodLabel = PERIOD_OPTIONS.find(p => p.key === filterPeriod)?.label || 'Bulan Ini'
+  const bookedLabel = filterPeriod === 'all' ? 'Total Booked' : `Booked ${periodLabel}`
+
   // ── Data Calculations ──────────────────────────────────────────────────────
 
-  const currentMonth = new Date().getMonth()
-  const currentYear = new Date().getFullYear()
+  // Helper: is a date within the selected period?
+  const inPeriod = (dateStr: string) => {
+    if (!periodStart) return true
+    return new Date(dateStr) >= periodStart
+  }
 
   let totalPipelineValue = 0
-  let wonThisMonthValue = 0
+  let wonInPeriodValue = 0
   let wonCount = 0
   let lostCount = 0
+  let wonCountInPeriod = 0
+  let lostCountInPeriod = 0
   let activeCount = 0
+
+  const activePipelineDeals: any[] = []
+  const wonInPeriodDeals: any[] = []
 
   opportunities.forEach(opty => {
     const tcv = getTCV(opty)
+    const closedDate = opty.updated_at || opty.created_at
     if (opty.stage === 'Won') {
       wonCount++
-      const d = new Date(opty.updated_at || opty.created_at)
-      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) wonThisMonthValue += tcv
+      if (inPeriod(closedDate)) {
+        wonCountInPeriod++
+        wonInPeriodValue += tcv
+        wonInPeriodDeals.push(opty)
+      }
     } else if (opty.stage === 'Lost') {
       lostCount++
+      if (inPeriod(closedDate)) lostCountInPeriod++
     } else {
       totalPipelineValue += tcv
       activeCount++
+      activePipelineDeals.push(opty)
     }
   })
 
-  const winRate = wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0
+  // Win rate is calculated from deals closed within the period
+  const winRate = wonCountInPeriod + lostCountInPeriod > 0
+    ? Math.round((wonCountInPeriod / (wonCountInPeriod + lostCountInPeriod)) * 100)
+    : (wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0)
+
   const avgDealSize = activeCount > 0 ? Math.round(totalPipelineValue / activeCount) : 0
 
   const stageChartData = stages
     .map(stage => {
       const optys = opportunities.filter(o => o.stage === stage)
       const value = optys.reduce((s, o) => s + getTCV(o), 0)
-      return { name: stage, value, count: optys.length }
+      return { name: stage, value, count: optys.length, rawDeals: optys }
     })
     .filter(d => d.value > 0)
 
   const pillarData = (() => {
-    const pillars: Record<string, number> = {}
+    const pillars: Record<string, { value: number, rawDeals: any[] }> = {}
     opportunities.forEach(opty => {
       if (opty.stage === 'Won' || opty.stage === 'Lost') return
       if (opty.opportunity_line_items?.length > 0) {
         opty.opportunity_line_items.forEach((item: any) => {
           const p = item.pillar || 'Other'
-          pillars[p] = (pillars[p] || 0) + (item.total_price || 0)
+          if (!pillars[p]) pillars[p] = { value: 0, rawDeals: [] }
+          pillars[p].value += (item.total_price || 0)
+          if (!pillars[p].rawDeals.find(d => d.id === opty.id)) {
+            pillars[p].rawDeals.push(opty)
+          }
         })
       } else {
-        pillars['Uncategorized'] = (pillars['Uncategorized'] || 0) + Number(opty.total_value || 0)
+        const p = 'Uncategorized'
+        if (!pillars[p]) pillars[p] = { value: 0, rawDeals: [] }
+        pillars[p].value += Number(opty.total_value || 0)
+        pillars[p].rawDeals.push(opty)
       }
     })
     return Object.entries(pillars)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, data]) => ({ name, value: data.value, rawDeals: data.rawDeals }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value)
   })()
 
   const topCustomers = (() => {
-    const map: Record<string, { value: number; count: number; industry: string }> = {}
+    const map: Record<string, { value: number; count: number; industry: string; rawDeals: any[] }> = {}
     opportunities.forEach(opty => {
       if (opty.stage === 'Won' || opty.stage === 'Lost') return
       const tcv = getTCV(opty)
       if (!map[opty.customer_name]) {
-        map[opty.customer_name] = { value: 0, count: 0, industry: opty.customer_industry || 'N/A' }
+        map[opty.customer_name] = { value: 0, count: 0, industry: opty.customer_industry || 'N/A', rawDeals: [] }
       }
       map[opty.customer_name].value += tcv
       map[opty.customer_name].count++
+      map[opty.customer_name].rawDeals.push(opty)
     })
     return Object.entries(map)
       .map(([name, data]) => ({ name, ...data }))
@@ -212,6 +287,29 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
 
+  // ── Hot Seat Activity ────────────────────────────────────────────────────────
+
+  const handleLogActivity = async () => {
+    if (!activityNote.trim() || !logActivityOpty) return
+    setIsLogging(true)
+    try {
+      const { error } = await supabase.from('opportunity_activities').insert([{
+        opportunity_id: logActivityOpty.id,
+        activity_type: 'Note',
+        notes: activityNote.trim()
+      }])
+      if (error) throw error
+      
+      setLogActivityOpty(null)
+      setActivityNote('')
+      router.refresh() // Refresh the server data to remove the deal from hot seat
+    } catch (err) {
+      console.error(err)
+      alert("Gagal menyimpan aktivitas.")
+    }
+    setIsLogging(false)
+  }
+
   // ── AI Generate ────────────────────────────────────────────────────────────
 
   const handleGenerateSummary = async () => {
@@ -224,8 +322,9 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
         .map(o => `${o.opportunity_name} (${o.customer_name}, ${o.stage}, ${formatCurrency(getTCV(o))})`)
 
       const payload = {
+        period: periodLabel,
         totalPipelineValue: formatCurrency(totalPipelineValue),
-        wonThisMonthValue: formatCurrency(wonThisMonthValue),
+        wonThisMonthValue: formatCurrency(wonInPeriodValue),
         winRate,
         activeDeals: activeCount,
         avgDealSize: formatCurrency(avgDealSize),
@@ -250,14 +349,63 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     setGeneratingAi(false)
   }
 
+  const handleSendChatMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!chatInput.trim() || isChatting) return
+
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    const newHistory = [...chatHistory, { role: 'user' as const, content: userMessage }]
+    setChatHistory(newHistory)
+    setIsChatting(true)
+
+    try {
+      const payload = {
+        message: userMessage,
+        history: chatHistory,
+        context: {
+          period: periodLabel,
+          activeDeals: activeCount,
+          wonThisMonthValue: formatCurrency(wonInPeriodValue),
+          totalPipelineValue: formatCurrency(totalPipelineValue),
+          winRate,
+          rawDealsSummary: opportunities.map(o => ({
+            name: o.opportunity_name,
+            customer: o.customer_name,
+            stage: o.stage,
+            value: formatCurrency(getTCV(o)),
+            daysStagnant: o.stage !== 'Won' && o.stage !== 'Lost' ? Math.floor((Date.now() - new Date(o.updated_at || o.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
+          }))
+        }
+      }
+
+      const res = await fetch('/api/ai/pipeline-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      
+      const data = await res.json()
+      if (res.ok) {
+        setChatHistory([...newHistory, { role: 'ai', content: data.reply }])
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (err) {
+      console.error(err)
+      setChatHistory([...newHistory, { role: 'ai', content: "Maaf, terjadi kesalahan saat mencoba menjawab." }])
+    }
+    setIsChatting(false)
+  }
+
   // ── Slide Definitions ──────────────────────────────────────────────────────
 
   const SLIDES = [
-    { title: 'Executive Summary', icon: Sparkles },
     { title: 'Pipeline KPIs', icon: Target },
     { title: 'Pipeline Analysis', icon: BarChart3 },
     { title: 'Top Accounts', icon: Users },
     { title: 'Hot Seat', icon: AlertTriangle },
+    { title: 'Executive Summary', icon: Sparkles },
   ]
 
   // SLIDE 0 — AI Executive Summary
@@ -294,21 +442,88 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
         </Button>
       </div>
 
-      {/* Scrollable Content Card */}
-      <Card className="border-2 border-indigo-100 shadow-lg flex-1 overflow-hidden bg-gradient-to-br from-indigo-50/40 to-white">
-        <CardContent className={cn("h-full overflow-y-auto", isFullscreen ? "p-10" : "p-6")}>
+      {/* Content Card */}
+      <Card className="border-2 border-indigo-100 shadow-lg flex-1 overflow-hidden bg-gradient-to-br from-indigo-50/40 to-white flex flex-col">
+        <CardContent className={cn("flex-1 overflow-hidden flex flex-col p-0")}>
           {aiSummary ? (
-            <p className={cn(
-              "leading-relaxed text-slate-700 whitespace-pre-wrap",
-              isFullscreen ? "text-xl leading-loose" : "text-base"
-            )}>
-              {displayedText}
-              {isTyping && (
-                <span className="inline-block w-0.5 h-6 bg-indigo-500 ml-1 animate-pulse align-middle" />
+            <div className="flex flex-col h-full min-h-0">
+              <ScrollArea className="flex-1 min-h-0">
+                <div className={cn(isFullscreen ? "p-10" : "p-6", "space-y-6")}>
+                  {/* Initial Summary */}
+                  <div className="flex gap-4">
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 mt-1">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div className={cn(
+                      "flex-1 bg-white p-5 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 text-slate-700 whitespace-pre-wrap",
+                      isFullscreen ? "text-lg leading-relaxed" : "text-base"
+                    )}>
+                      {displayedText}
+                      {isTyping && <span className="inline-block w-0.5 h-5 bg-indigo-500 ml-1 animate-pulse align-middle" />}
+                    </div>
+                  </div>
+
+                  {/* Chat History */}
+                  {!isTyping && chatHistory.map((msg, idx) => (
+                    <div key={idx} className={cn("flex gap-4", msg.role === 'user' ? "flex-row-reverse" : "")}>
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1",
+                        msg.role === 'user' ? "bg-slate-200 text-slate-600" : "bg-indigo-100 text-indigo-600"
+                      )}>
+                        {msg.role === 'user' ? <Users className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                      </div>
+                      <div className={cn(
+                        "max-w-[85%] p-4 rounded-2xl shadow-sm whitespace-pre-wrap",
+                        msg.role === 'user' 
+                          ? "bg-indigo-600 text-white rounded-tr-none" 
+                          : "bg-white border border-slate-100 text-slate-700 rounded-tl-none",
+                        isFullscreen ? "text-lg" : "text-sm"
+                      )}>
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {isChatting && (
+                    <div className="flex gap-4">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 mt-1">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 flex gap-1 items-center">
+                        <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" />
+                        <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                        <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0.4s' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+              
+              {/* Chat Input */}
+              {!isTyping && (
+                <div className="p-4 bg-white border-t border-slate-100 shrink-0">
+                  <form onSubmit={handleSendChatMessage} className="relative flex items-center">
+                    <Input
+                      placeholder="Tanya AI tentang pipeline ini..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      className={cn("pr-12 rounded-full bg-slate-50 border-slate-200 focus-visible:ring-indigo-500", isFullscreen ? "h-14 text-lg px-6" : "h-10")}
+                      disabled={isChatting}
+                    />
+                    <Button 
+                      type="submit" 
+                      size="icon" 
+                      className={cn("absolute right-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700", isFullscreen ? "h-11 w-11" : "h-7 w-7 right-1.5")}
+                      disabled={isChatting || !chatInput.trim()}
+                    >
+                      <Send className={cn(isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5", "ml-0.5")} />
+                    </Button>
+                  </form>
+                </div>
               )}
-            </p>
+            </div>
           ) : (
-            <div className="h-full flex items-center justify-center">
+            <div className="h-full flex items-center justify-center p-6">
               <p className={cn("text-slate-400 italic text-center", isFullscreen ? "text-xl" : "text-sm")}>
                 Klik tombol &quot;Generate Narrative&quot; untuk membangkitkan narasi AI
                 dari data pipeline real-time Anda.
@@ -331,21 +546,23 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
       bg: 'bg-blue-50',
       text: 'text-blue-600',
       valueCls: 'text-blue-900',
+      onClick: () => setDrillDownData({ title: 'Total Pipeline Aktif', subtitle: `${activeCount} deals berjalan`, deals: activePipelineDeals }),
     },
     {
-      label: 'Booked Bulan Ini',
-      value: formatCurrency(wonThisMonthValue),
-      sub: `${wonCount} deal won`,
+      label: bookedLabel,
+      value: formatCurrency(wonInPeriodValue),
+      sub: `${wonCountInPeriod} deal won ${periodStart ? `(${periodLabel.toLowerCase()})` : ''}`,
       icon: CheckCircle2,
       gradient: 'from-emerald-500 to-emerald-600',
       bg: 'bg-emerald-50',
       text: 'text-emerald-600',
       valueCls: 'text-emerald-900',
+      onClick: () => setDrillDownData({ title: bookedLabel, subtitle: `${wonCountInPeriod} deal won`, deals: wonInPeriodDeals }),
     },
     {
       label: 'Win Rate',
       value: `${winRate}%`,
-      sub: `${wonCount} won / ${lostCount} lost`,
+      sub: `${wonCountInPeriod} won / ${lostCountInPeriod} lost (${periodLabel.toLowerCase()})`,
       icon: Target,
       gradient: 'from-violet-500 to-violet-600',
       bg: 'bg-violet-50',
@@ -374,11 +591,14 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     },
   ]
 
-  const KpiCard = ({ kpi, large }: { kpi: typeof kpis[0]; large?: boolean }) => {
+  const KpiCard = ({ kpi, large }: { kpi: typeof kpis[0] & { onClick?: () => void }; large?: boolean }) => {
     const Icon = kpi.icon
     return (
-      <div className={cn(
-        "rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden",
+      <div 
+        onClick={kpi.onClick}
+        className={cn(
+        "rounded-2xl border border-slate-100 shadow-sm overflow-hidden",
+        kpi.onClick ? "cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 transition-all" : "hover:shadow-md transition-shadow",
         kpi.bg
       )}>
         <div className={cn("h-1.5 w-full bg-gradient-to-r", kpi.gradient)} />
@@ -477,6 +697,12 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                     isAnimationActive={true}
                     animationBegin={0}
                     animationDuration={900}
+                    cursor="pointer"
+                    onClick={(data) => {
+                      if (data?.payload) {
+                        setDrillDownData({ title: `Stage: ${data.payload.name}`, subtitle: `${data.payload.count} deals berjalan`, deals: data.payload.rawDeals })
+                      }
+                    }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -507,6 +733,12 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       isAnimationActive={true}
                       animationBegin={0}
                       animationDuration={900}
+                      cursor="pointer"
+                      onClick={(data) => {
+                        if (data?.payload?.payload) {
+                          setDrillDownData({ title: `Produk: ${data.name}`, deals: data.payload.payload.rawDeals })
+                        }
+                      }}
                     >
                       {pillarData.map((_, index) => (
                         <Cell key={index} fill={SLIDE_COLORS[index % SLIDE_COLORS.length]} />
@@ -568,7 +800,11 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
               <div className="p-8 text-center text-slate-400">Belum ada data customer aktif.</div>
             ) : (
               topCustomers.map((c, i) => (
-                <div key={i} className={cn("px-6 hover:bg-slate-50/70 transition-colors", isFullscreen ? "py-5" : "py-4")}>
+                <div 
+                  key={i} 
+                  onClick={() => setDrillDownData({ title: `Account: ${c.name}`, subtitle: `${c.count} active deals`, deals: c.rawDeals })}
+                  className={cn("px-6 hover:bg-slate-50 transition-colors cursor-pointer group", isFullscreen ? "py-5" : "py-4")}
+                >
                   <div className="flex items-center justify-between mb-2.5">
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={cn(
@@ -703,15 +939,25 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                       </div>
                     </div>
                   </div>
-                  <Link href={`/opportunities/${opty.id}`} className="shrink-0 ml-4">
+                  <div className="shrink-0 ml-4 flex items-center gap-2">
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setLogActivityOpty(opty)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
                     >
-                      Review <ArrowRight className="h-4 w-4 ml-1.5" />
+                      <PenSquare className="h-4 w-4" /> Log Activity
                     </Button>
-                  </Link>
+                    <Link href={`/opportunities/${opty.id}`} className="hidden md:block">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        Review <ArrowRight className="h-4 w-4 ml-1.5" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               ))
             )}
@@ -723,11 +969,11 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
 
   const renderSlide = (index: number) => {
     switch (index) {
-      case 0: return <Slide0 />
-      case 1: return <Slide1 />
-      case 2: return <Slide2 />
-      case 3: return <Slide3 />
-      case 4: return <Slide4 />
+      case 0: return Slide1()
+      case 1: return Slide2()
+      case 2: return Slide3()
+      case 3: return Slide4()
+      case 4: return Slide0()
       default: return null
     }
   }
@@ -757,6 +1003,26 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
             {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </span>
         </div>
+
+        {/* Period Filter */}
+        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+          {PERIOD_OPTIONS.map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setFilterPeriod(opt.key)}
+              className={cn(
+                "px-3 py-1 rounded-md text-xs font-semibold transition-all duration-200",
+                filterPeriod === opt.key
+                  ? "bg-white text-indigo-700 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              <span className="hidden sm:inline">{opt.label}</span>
+              <span className="sm:hidden">{opt.short}</span>
+            </button>
+          ))}
+        </div>
+
         <Button
           variant="outline"
           size="sm"
@@ -877,6 +1143,94 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
           ))}
         </div>
       )}
+
+      {/* ── Drill-Down Modal ── */}
+      <Dialog open={!!drillDownData} onOpenChange={(v) => !v && setDrillDownData(null)}>
+        <DialogContent container={deckRef.current} className="sm:max-w-[800px] max-h-[85vh] flex flex-col p-0 overflow-hidden bg-white border-slate-200/60 shadow-xl rounded-2xl">
+          <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/80 shrink-0">
+            <DialogTitle className="text-xl font-bold text-slate-800">{drillDownData?.title}</DialogTitle>
+            {drillDownData?.subtitle && (
+              <DialogDescription className="text-slate-500 font-medium mt-1">
+                {drillDownData.subtitle}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden min-h-0 bg-white">
+            <ScrollArea className="h-full">
+              <Table>
+                <TableHeader className="bg-slate-50/50 sticky top-0 z-10 shadow-sm border-b border-slate-100">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[35%] py-4 pl-6 font-semibold text-slate-600">Opportunity</TableHead>
+                    <TableHead className="font-semibold text-slate-600">Customer</TableHead>
+                    <TableHead className="font-semibold text-slate-600">Stage</TableHead>
+                    <TableHead className="text-right pr-6 font-semibold text-slate-600">Value (TCV)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!drillDownData?.deals?.length ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-32 text-center text-slate-400">
+                        Tidak ada data yang relevan.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    drillDownData.deals.map((deal) => (
+                      <TableRow key={deal.id} className="hover:bg-slate-50/50 transition-colors border-slate-100/50">
+                        <TableCell className="font-medium text-slate-800 pl-6 py-4">
+                          <Link href={`/opportunities/${deal.id}`} target="_blank" className="hover:text-indigo-600 hover:underline">
+                            {deal.opportunity_name}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-slate-600">{deal.customer_name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn(
+                            "font-medium tracking-tight",
+                            deal.stage === 'Won' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                            deal.stage === 'Lost' ? "bg-rose-50 text-rose-700 border-rose-200" :
+                            "bg-indigo-50 text-indigo-700 border-indigo-200"
+                          )}>
+                            {deal.stage}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-slate-700 pr-6">
+                          {formatCurrency(getTCV(deal))}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* ── Log Activity Modal ── */}
+      <Dialog open={!!logActivityOpty} onOpenChange={(v) => !v && setLogActivityOpty(null)}>
+        <DialogContent container={deckRef.current} className="sm:max-w-[500px] rounded-2xl shadow-xl border-slate-200/60 p-0 overflow-hidden bg-white">
+          <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/80">
+            <DialogTitle className="text-xl font-bold text-slate-800">Log Activity</DialogTitle>
+            <DialogDescription className="mt-1 text-slate-500">
+              {logActivityOpty?.opportunity_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 pb-2">
+            <p className="text-sm text-slate-600 mb-3 font-medium">Catat instruksi atau tindak lanjut:</p>
+            <Textarea
+              placeholder="Misal: Follow up via telp besok pagi..."
+              value={activityNote}
+              onChange={(e) => setActivityNote(e.target.value)}
+              className="min-h-[120px] resize-none focus-visible:ring-indigo-500 rounded-xl"
+            />
+          </div>
+          <DialogFooter className="px-6 py-4 bg-slate-50/50 border-t border-slate-100">
+            <Button variant="outline" onClick={() => setLogActivityOpty(null)} className="rounded-full">Batal</Button>
+            <Button onClick={handleLogActivity} disabled={isLogging || !activityNote.trim()} className="rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-200">
+              {isLogging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Simpan & Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
