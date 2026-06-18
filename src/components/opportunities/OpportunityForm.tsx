@@ -54,6 +54,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
   const [extractedLineItems, setExtractedLineItems] = useState<any[]>([])
   const [historicalCustomers, setHistoricalCustomers] = useState<any[]>([])
   const [masterSettings, setMasterSettings] = useState<any[]>([])
+  const [productCatalog, setProductCatalog] = useState<any[]>([])
   const [isRegeneratingContext, setIsRegeneratingContext] = useState(false)
   
   const [currentStep, setCurrentStep] = useState(1)
@@ -93,9 +94,19 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
       }
     }
     
+    const fetchCatalog = async () => {
+      const { data } = await supabase.from('product_catalog').select('pillar_name').order('pillar_name')
+      if (data) setProductCatalog(data)
+    }
+    
     fetchCustomers()
     fetchSettings()
+    fetchCatalog()
   }, [])
+
+  const catalogPillars = productCatalog.length > 0 
+    ? Array.from(new Set(productCatalog.map(p => p.pillar_name))) 
+    : ['Connectivity', 'ICT & Cloud', 'Managed Service & Security', 'IoT & Digital'];
 
   const getOptions = (category: string, fallback: string[]) => {
     const opts = masterSettings.filter(s => s.category === category)
@@ -737,7 +748,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
                                 <Select value={item.pillar} onValueChange={(v) => handleManualItemChange(idx, 'pillar', v)}>
                                   <SelectTrigger className="h-8 mb-2 text-xs"><SelectValue placeholder="Pillar" /></SelectTrigger>
                                   <SelectContent>
-                                    {getOptions('PILLAR', ['Connectivity', 'ICT & Cloud', 'Managed Service & Security', 'IoT & Digital']).map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
+                                    {catalogPillars.map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
                                 <Input className="h-8 text-xs font-medium" placeholder="Product name" value={item.product_name} onChange={e => handleManualItemChange(idx, 'product_name', e.target.value)} />
