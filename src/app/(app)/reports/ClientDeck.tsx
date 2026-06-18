@@ -772,7 +772,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                     cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                   />
                   <Bar
-                    dataKey="mrr"
+                    dataKey="tcv"
                     fill="#10b981"
                     radius={[5, 5, 0, 0]}
                     barSize={40}
@@ -1263,8 +1263,7 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden min-h-0 bg-white">
-            <ScrollArea className="h-full">
+          <div className="flex-1 overflow-y-auto min-h-0 bg-white">
               <Table>
                 <TableHeader className="bg-slate-50/50 sticky top-0 z-10 shadow-sm border-b border-slate-100">
                   <TableRow className="hover:bg-transparent">
@@ -1316,7 +1315,6 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                   )}
                 </TableBody>
               </Table>
-            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>

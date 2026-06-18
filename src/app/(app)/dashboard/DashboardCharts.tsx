@@ -31,7 +31,7 @@ export function DashboardCharts({ opportunities, stages }: DashboardChartsProps)
         }
         return sum + (tcv > 0 ? tcv : Number(opty.total_value || 0))
       }, 0)
-      return { name: stage, value }
+      return { name: stage, value, count: optysInStage.length }
     })
     return data.filter(d => d.value > 0)
   }, [opportunities])
@@ -82,9 +82,21 @@ export function DashboardCharts({ opportunities, stages }: DashboardChartsProps)
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                 <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fontSize: 11, fill: '#64748b' }} width={70} />
                 <RechartsTooltip 
-                  formatter={(value: any) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value))}
-                  cursor={{ fill: '#f1f5f9' }}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  content={({ active, payload }: any) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload
+                      return (
+                        <div className="bg-white p-3 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12)] border border-slate-100">
+                          <p className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{data.name} <span className="text-slate-400 font-normal text-xs">({data.count} deals)</span></p>
+                          <div className="space-y-1 text-sm">
+                            <p className="text-emerald-600 font-semibold flex justify-between gap-4"><span className="text-slate-500 font-medium">Total Nilai</span> {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(data.value)}</p>
+                          </div>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                  cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                 />
                 <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
               </BarChart>

@@ -25,6 +25,7 @@ interface OpportunityListClientProps {
 export function OpportunityListClient({ initialData, stages }: OpportunityListClientProps) {
   const router = useRouter()
   const [search, setSearch] = useState("")
+  const [selectedStage, setSelectedStage] = useState<string | null>(null)
   const [isNavigatingNew, setIsNavigatingNew] = useState(false)
   const [navigatingRowId, setNavigatingRowId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -35,6 +36,7 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
   // Filter Data
   const filteredData = useMemo(() => {
     return initialData.filter(opty => {
+      if (selectedStage && opty.stage !== selectedStage) return false;
       const searchLower = search.toLowerCase()
       return (
         opty.opportunity_name?.toLowerCase().includes(searchLower) ||
@@ -44,7 +46,7 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
         opty.quote_id?.toLowerCase().includes(searchLower)
       )
     })
-  }, [initialData, search])
+  }, [initialData, search, selectedStage])
 
   // Reset to page 1 whenever search changes
   const totalItems = filteredData.length
@@ -119,27 +121,59 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
 
 
       {/* Actions and Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search by SFA ID, Quote ID, customer, or deal name..."
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9 w-full bg-white dark:bg-zinc-950"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="relative w-full sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by SFA ID, Quote ID, customer, or deal name..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-9 w-full bg-white dark:bg-zinc-950"
+            />
+          </div>
+          <Button
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+            disabled={isNavigatingNew}
+            onClick={() => {
+              setIsNavigatingNew(true)
+              router.push('/opportunities/new')
+            }}
+          >
+            {isNavigatingNew ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+            {isNavigatingNew ? "Loading..." : "New Opportunity"}
+          </Button>
         </div>
-        <Button
-          className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
-          disabled={isNavigatingNew}
-          onClick={() => {
-            setIsNavigatingNew(true)
-            router.push('/opportunities/new')
-          }}
-        >
-          {isNavigatingNew ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-          {isNavigatingNew ? "Loading..." : "New Opportunity"}
-        </Button>
+
+        {/* Stage Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant={selectedStage === null ? "default" : "outline"}
+            className={`cursor-pointer px-3 py-1 text-xs font-medium transition-colors ${
+              selectedStage === null
+                ? "bg-slate-800 hover:bg-slate-700 text-white"
+                : "bg-white hover:bg-slate-100 text-slate-600 border-slate-200"
+            }`}
+            onClick={() => { setSelectedStage(null); setCurrentPage(1); }}
+          >
+            Semua Stage
+          </Badge>
+          {stages.map((stage) => {
+            const isSelected = selectedStage === stage;
+            const baseColor = getStageColor(stage).split(' ')[0]; // Gets the bg color class like 'bg-indigo-50'
+            const activeColorClass = isSelected ? getStageColor(stage).replace(/bg-[a-z]+-50/g, (match) => match.replace('-50', '-500')).replace(/text-[a-z]+-700/g, 'text-white') : getStageColor(stage);
+            return (
+              <Badge
+                key={stage}
+                variant="outline"
+                className={`cursor-pointer px-3 py-1 text-xs font-medium transition-colors ${isSelected ? activeColorClass : getStageColor(stage).replace(/bg-[a-z]+-50/g, 'bg-white')} hover:${baseColor}`}
+                onClick={() => { setSelectedStage(isSelected ? null : stage); setCurrentPage(1); }}
+              >
+                {stage}
+              </Badge>
+            );
+          })}
+        </div>
       </div>
 
       {/* Data Table */}
