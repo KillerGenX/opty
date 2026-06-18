@@ -22,13 +22,17 @@ export function Topbar() {
   const supabase = createClient()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [profile, setProfile] = useState<any>(null)
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
-        setUserEmail(data.user.email || null)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+        setProfile({
+          email: user.email,
+          ...profileData
+        })
       }
     }
     fetchUser()
@@ -42,7 +46,9 @@ export function Topbar() {
     router.refresh()
   }
 
-  const initial = userEmail ? userEmail.charAt(0).toUpperCase() : "U"
+  const displayName = profile?.full_name || profile?.email?.split('@')[0] || "User"
+  const initial = displayName.charAt(0).toUpperCase()
+  const avatarUrl = profile?.avatar_url
 
   const [isNavigatingQuickAdd, setIsNavigatingQuickAdd] = useState(false)
   const pathname = usePathname()
@@ -75,9 +81,9 @@ export function Topbar() {
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <Button 
-          variant="default" 
-          size="sm" 
+        <Button
+          variant="default"
+          size="sm"
           disabled={isNavigatingQuickAdd}
           className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-9 hidden md:flex items-center gap-1.5"
           onClick={handleQuickAdd}
@@ -85,32 +91,54 @@ export function Topbar() {
           {isNavigatingQuickAdd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           <span>{isNavigatingQuickAdd ? 'Loading...' : 'Quick Add'}</span>
         </Button>
-        
-        <Button variant="ghost" size="icon" className="relative text-slate-500 hover:text-emerald-900 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:text-emerald-500 dark:hover:bg-zinc-900 rounded-xl ml-1">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-600" />
-          <span className="sr-only">Notifications</span>
-        </Button>
-        
+
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-500 font-bold text-xs uppercase ml-1">
-            {initial}
+          <DropdownMenuTrigger className="relative flex h-9 w-9 items-center justify-center text-slate-500 hover:text-emerald-900 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:text-emerald-500 dark:hover:bg-zinc-900 rounded-xl ml-1 focus:outline-none focus:ring-2 focus:ring-emerald-900">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-600" />
+            <span className="sr-only">Notifications</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="font-semibold text-slate-800 dark:text-zinc-200">Notifications</DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Bell className="h-8 w-8 text-slate-300 dark:text-zinc-700 mb-3" />
+              <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">All caught up!</p>
+              <p className="text-xs text-slate-500 dark:text-zinc-500 mt-1">You have no new notifications.</p>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-500 font-bold text-xs uppercase ml-1 overflow-hidden border border-emerald-200 dark:border-emerald-800">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              initial
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuGroup>
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">My Account</p>
-                  {userEmail && <p className="text-xs leading-none text-muted-foreground mt-1 break-all">{userEmail}</p>}
+                  <p className="text-sm font-medium leading-none">{displayName}</p>
+                  <p className="text-xs leading-none text-muted-foreground mt-1 truncate">{profile?.email}</p>
+                  {profile?.role && (
+                    <div className="mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-500 uppercase w-fit">
+                      {profile.role}
+                    </div>
+                  )}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/profile')} className="cursor-pointer">Profile</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/settings')} className="cursor-pointer">Settings</DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              className="text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950" 
+            <DropdownMenuItem
+              className="text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950"
               onClick={handleSignOut}
               disabled={isSigningOut}
             >
