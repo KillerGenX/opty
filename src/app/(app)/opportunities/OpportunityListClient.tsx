@@ -27,6 +27,8 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
   const [search, setSearch] = useState("")
   const [isNavigatingNew, setIsNavigatingNew] = useState(false)
   const [navigatingRowId, setNavigatingRowId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
 
 
@@ -43,6 +45,20 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
       )
     })
   }, [initialData, search])
+
+  // Reset to page 1 whenever search changes
+  const totalItems = filteredData.length
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedData = useMemo(() => {
+    const start = (safePage - 1) * pageSize
+    return filteredData.slice(start, start + pageSize)
+  }, [filteredData, safePage, pageSize])
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val)
+    setCurrentPage(1)
+  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
@@ -109,7 +125,7 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
           <Input
             placeholder="Search by SFA ID, Quote ID, customer, or deal name..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9 w-full bg-white dark:bg-zinc-950"
           />
         </div>
@@ -149,7 +165,7 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
                 </TableCell>
               </TableRow>
             ) : (
-              filteredData.map((opty) => (
+              paginatedData.map((opty) => (
                 <TableRow
                   key={opty.id}
                   className={`group cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-900/50 transition-colors ${navigatingRowId === opty.id ? 'opacity-70 bg-slate-50 dark:bg-zinc-900/50' : ''}`}
@@ -255,6 +271,100 @@ export function OpportunityListClient({ initialData, stages }: OpportunityListCl
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalItems > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+          {/* Info + Page size */}
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <span>
+              Menampilkan {Math.min((safePage - 1) * pageSize + 1, totalItems)}–{Math.min(safePage * pageSize, totalItems)} dari {totalItems} opportunities
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Per halaman:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
+                className="text-xs border border-slate-200 dark:border-zinc-700 rounded-md px-2 py-1 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                {[10, 25, 50].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Page Navigation */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={safePage === 1}
+              className="h-8 w-8 p-0 text-xs"
+            >
+              «
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="h-8 px-3 text-xs"
+            >
+              ‹ Prev
+            </Button>
+
+            {/* Page number buttons */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+              .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (arr[idx - 1] as number) + 1 < p) acc.push('...')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((item, idx) =>
+                item === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="h-8 w-8 flex items-center justify-center text-xs text-slate-400">…</span>
+                ) : (
+                  <Button
+                    key={item}
+                    variant={safePage === item ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(item as number)}
+                    className={`h-8 w-8 p-0 text-xs ${
+                      safePage === item
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                        : ''
+                    }`}
+                  >
+                    {item}
+                  </Button>
+                )
+              )
+            }
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="h-8 px-3 text-xs"
+            >
+              Next ›
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={safePage === totalPages}
+              className="h-8 w-8 p-0 text-xs"
+            >
+              »
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

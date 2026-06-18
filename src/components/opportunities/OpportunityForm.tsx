@@ -314,7 +314,12 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     }
   }
 
-  const handleDataExtracted = (extractedData: Partial<OpportunityFormData> & { line_items?: any[] }) => {
+  const handleDataExtracted = (extractedData: Partial<OpportunityFormData> & { line_items?: any[], probability?: number }) => {
+    // Convert AI probability (number) to string for the form field
+    const extractedProbability = extractedData.probability && Number(extractedData.probability) > 0
+      ? String(Math.min(95, Math.max(5, Math.round(Number(extractedData.probability)))))
+      : undefined
+
     setFormData(prev => ({
       ...prev,
       opportunity_name: extractedData.opportunity_name || prev.opportunity_name,
@@ -329,6 +334,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
       customer_contact: extractedData.customer_contact || prev.customer_contact,
       customer_address: extractedData.customer_address || prev.customer_address,
       expected_close_date: extractedData.expected_close_date || prev.expected_close_date,
+      probability: extractedProbability || prev.probability,
       scope_of_work: extractedData.scope_of_work || prev.scope_of_work,
       technical_requirements: extractedData.technical_requirements || prev.technical_requirements,
       pain_points: extractedData.pain_points || prev.pain_points,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
-import { Trash2, Plus, Save, MapPin, Building, Cable, Hash, Wifi } from "lucide-react"
+import { Trash2, Plus, Save, MapPin, Building, Cable, Hash, Wifi, Sparkles, FileText, Upload, ImageIcon, Loader2, CheckCircle2, Eye, PlusCircle } from "lucide-react"
+
 
 interface LineItem {
   id?: string
@@ -88,6 +89,17 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
   const [productCatalog, setProductCatalog] = useState<any[]>([])
   const supabase = createClient()
   const router = useRouter()
+
+  // ── Magic BoQ Import State ──────────────────────────────────────────────
+  const [boqOpen, setBoqOpen] = useState(false)
+  const [boqText, setBoqText] = useState('')
+  const [boqFiles, setBoqFiles] = useState<File[]>([])
+  const [boqLoading, setBoqLoading] = useState(false)
+  const [boqError, setBoqError] = useState('')
+  const [boqPreview, setBoqPreview] = useState<LineItem[]>([])  // extracted but not yet saved
+  const [boqTab, setBoqTab] = useState<'input' | 'preview'>('input')
+  const boqFileRef = useRef<HTMLInputElement>(null)
+  // ───────────────────────────────────────────────────────────────────────
 
   useEffect(() => { fetchItems() }, [opportunityId])
 
@@ -176,12 +188,280 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
   const grandTotal = items.reduce((sum, item) => sum + (item.total_price || 0), 0)
   const hasTelcoRows = items.some(i => isTelcoPillar(i.pillar))
 
+  // ── Magic BoQ Handlers ────────────────────────────────────────────────
+  const handleBoqFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setBoqFiles(prev => [...prev, ...Array.from(e.target.files!)])
+    }
+  }
+
+  const handleBoqPaste = (e: React.ClipboardEvent) => {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      const pastedFiles = Array.from(e.clipboardData.files).filter(
+        f => f.type.startsWith('image/') || f.type === 'application/pdf'
+      )
+      if (pastedFiles.length > 0) {
+        setBoqFiles(prev => [...prev, ...pastedFiles])
+        setBoqError('')
+      }
+    }
+  }
+
+  const calcTotalPrice = (item: any): number => {
+    const qty = Number(item.quantity) || 1
+    const mrc = Number(item.mrc) || 0
+    const otc = Number(item.otc) || 0
+    const term = Number(item.contract_term) || 1
+    return qty * (otc + mrc * term)
+  }
+
+  const handleBoqExtract = async () => {
+    if (!boqText.trim() && boqFiles.length === 0) {
+      setBoqError('Paste teks BoQ atau upload file terlebih dahulu.')
+      return
+    }
+    setBoqLoading(true)
+    setBoqError('')
+    try {
+      const formData = new FormData()
+      if (boqText.trim()) formData.append('text', boqText)
+      boqFiles.forEach(f => formData.append('files', f))
+
+      const res = await fetch('/api/ai/extract-opportunity', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Gagal ekstrak data')
+      }
+      const data = await res.json()
+      const extracted: LineItem[] = (data.line_items || []).map((item: any) => ({
+        pillar: item.pillar || '',
+        product_name: item.product_name || '',
+        specification: item.specification || '',
+        quantity: Number(item.quantity) || 1,
+        capacity: item.capacity || '',
+        unit: item.unit || 'unit',
+        mrc: Number(item.mrc) || 0,
+        otc: Number(item.otc) || 0,
+        contract_term: Number(item.contract_term) || 12,
+        site_a: item.site_a || '',
+        site_b: item.site_b || '',
+        lastmile: item.lastmile || '',
+        cid: item.cid || '',
+        total_price: calcTotalPrice(item),
+      }))
+
+      if (extracted.length === 0) {
+        setBoqError('AI tidak menemukan line items dari dokumen ini. Coba dengan teks/file yang lebih detail.')
+        return
+      }
+      setBoqPreview(extracted)
+      setBoqTab('preview')
+    } catch (err: any) {
+      setBoqError(err.message)
+    } finally {
+      setBoqLoading(false)
+    }
+  }
+
+  const handleBoqAppend = () => {
+    setItems(prev => [...prev, ...boqPreview])
+    setBoqOpen(false)
+    setBoqText('')
+    setBoqFiles([])
+    setBoqPreview([])
+    setBoqTab('input')
+    setBoqError('')
+  }
+
+  const handleBoqClose = () => {
+    setBoqOpen(false)
+    setBoqText('')
+    setBoqFiles([])
+    setBoqPreview([])
+    setBoqTab('input')
+    setBoqError('')
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
   if (loading) return <div className="text-center py-10 text-slate-400">Loading items...</div>
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={handleAddItem} className="mb-2">
+      {/* ── Toolbar ── */}
+      <div className="flex items-center justify-between gap-3">
+        {/* Magic BoQ Import Dialog */}
+        <Dialog open={boqOpen} onOpenChange={(v) => { if (!v) handleBoqClose(); else setBoqOpen(true) }}>
+          <DialogTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-violet-200 text-violet-700 hover:bg-violet-50 hover:border-violet-400 dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-950/40 gap-1.5"
+              />
+            }
+          >
+            <Sparkles className="h-4 w-4" />
+            Magic BoQ Import
+          </DialogTrigger>
+
+          <DialogContent className="sm:max-w-[620px] max-h-[85vh] flex flex-col" onPaste={handleBoqPaste}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-violet-800 dark:text-violet-400">
+                <Sparkles className="h-5 w-5" /> Magic BoQ Import
+              </DialogTitle>
+              <DialogDescription>
+                Paste email / teks BoQ, atau upload PDF / gambar. AI akan mengekstrak semua line items secara otomatis.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4 mt-2 pr-1">
+              {boqTab === 'input' ? (
+                <>
+                  {/* Tab selector */}
+                  <div className="flex gap-2 p-1 bg-slate-100 dark:bg-zinc-800 rounded-lg">
+                    <button
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-medium bg-white dark:bg-zinc-900 shadow-sm"
+                    >
+                      <FileText className="h-4 w-4" /> Paste Teks
+                    </button>
+                    <button
+                      onClick={() => boqFileRef.current?.click()}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+                    >
+                      <Upload className="h-4 w-4" /> Upload File
+                    </button>
+                  </div>
+
+                  <Textarea
+                    placeholder="Paste email BoQ, tabel pricing, atau deskripsi produk di sini..."
+                    className="min-h-[200px] resize-none bg-white dark:bg-zinc-900"
+                    value={boqText}
+                    onChange={(e) => setBoqText(e.target.value)}
+                  />
+
+                  <input
+                    type="file"
+                    ref={boqFileRef}
+                    onChange={handleBoqFileChange}
+                    className="hidden"
+                    multiple
+                    accept="application/pdf,image/png,image/jpeg,image/webp"
+                  />
+
+                  {boqFiles.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-slate-500">File terpilih:</p>
+                      {boqFiles.map((f, i) => (
+                        <div key={i} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-800 px-3 py-2 rounded-md text-sm">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            <span className="truncate max-w-[380px]">{f.name}</span>
+                          </div>
+                          <button
+                            onClick={() => setBoqFiles(prev => prev.filter((_, idx) => idx !== i))}
+                            className="text-xs text-red-500 hover:text-red-700 ml-2 shrink-0"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {boqError && <p className="text-sm text-red-500">{boqError}</p>}
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                    <Button variant="outline" onClick={handleBoqClose} size="sm">Batal</Button>
+                    <Button
+                      size="sm"
+                      onClick={handleBoqExtract}
+                      disabled={boqLoading || (!boqText.trim() && boqFiles.length === 0)}
+                      className="bg-violet-600 hover:bg-violet-700 text-white min-w-[120px]"
+                    >
+                      {boqLoading
+                        ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scanning BoQ...</>
+                        : <><Sparkles className="h-4 w-4 mr-2" /> Ekstrak dengan AI</>}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                /* PREVIEW tab */
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    <p className="text-sm font-semibold text-slate-700 dark:text-zinc-200">
+                      AI berhasil mengekstrak <span className="text-emerald-600">{boqPreview.length} item</span>. Periksa sebelum menambahkan.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 dark:border-zinc-700 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-semibold text-slate-600">Produk</th>
+                          <th className="text-center px-3 py-2 font-semibold text-slate-600">Qty</th>
+                          <th className="text-right px-3 py-2 font-semibold text-slate-600">MRC</th>
+                          <th className="text-right px-3 py-2 font-semibold text-slate-600">OTC</th>
+                          <th className="text-right px-3 py-2 font-semibold text-slate-600">TCV</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                        {boqPreview.map((item, i) => (
+                          <tr key={i} className="hover:bg-slate-50 dark:hover:bg-zinc-900/50">
+                            <td className="px-3 py-2">
+                              <div className="font-semibold text-slate-800 dark:text-zinc-100">{item.product_name}</div>
+                              {item.pillar && <div className="text-slate-400 text-[10px]">{item.pillar}{item.capacity ? ` · ${item.capacity}` : ''}</div>}
+                              {item.site_a && <div className="text-slate-400 text-[10px]">{item.site_a}{item.site_b ? ` → ${item.site_b}` : ''}</div>}
+                            </td>
+                            <td className="px-3 py-2 text-center text-slate-600">{item.quantity}</td>
+                            <td className="px-3 py-2 text-right text-slate-600">{item.mrc > 0 ? formatCurrency(item.mrc) : '—'}</td>
+                            <td className="px-3 py-2 text-right text-slate-600">{item.otc > 0 ? formatCurrency(item.otc) : '—'}</td>
+                            <td className="px-3 py-2 text-right font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(item.total_price)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-slate-50 dark:bg-zinc-800 border-t border-slate-200 dark:border-zinc-700">
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2 text-right text-xs font-semibold text-slate-600">Total TCV</td>
+                          <td className="px-3 py-2 text-right font-black text-emerald-700 dark:text-emerald-400">
+                            {formatCurrency(boqPreview.reduce((s, i) => s + i.total_price, 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <div className="flex justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setBoqTab('input'); setBoqPreview([]) }}
+                    >
+                      ← Kembali
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={handleBoqClose}>Batal</Button>
+                      <Button
+                        size="sm"
+                        onClick={handleBoqAppend}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                        Tambahkan {boqPreview.length} Item
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Manual Add */}
+        <Button variant="outline" size="sm" onClick={handleAddItem}>
           <Plus className="h-4 w-4 mr-2" /> Add Item
         </Button>
       </div>
