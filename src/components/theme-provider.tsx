@@ -1,11 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
 
 export function ThemeProvider({
   children,
   ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+}: any) {
+  // Bypassing next-themes to avoid React 19 script tag error since we force 'light' theme
+  return <div className="light contents">{children}</div>
 }

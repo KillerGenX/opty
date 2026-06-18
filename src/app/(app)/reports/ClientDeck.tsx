@@ -144,10 +144,12 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
   let lostCount = 0
   let wonCountInPeriod = 0
   let lostCountInPeriod = 0
+  let lostValueInPeriod = 0
   let activeCount = 0
 
   const activePipelineDeals: any[] = []
   const wonInPeriodDeals: any[] = []
+  const lostInPeriodDeals: any[] = []
 
   opportunities.forEach(opty => {
     const { mrr, otc, tcv } = getRevenueSplit(opty)
@@ -163,7 +165,11 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
       }
     } else if (opty.stage === 'Lost') {
       lostCount++
-      if (inPeriod(closedDate)) lostCountInPeriod++
+      if (inPeriod(closedDate)) {
+        lostCountInPeriod++
+        lostValueInPeriod += tcv
+        lostInPeriodDeals.push(opty)
+      }
     } else {
       activeMrr += mrr
       activeOtc += otc
@@ -634,12 +640,13 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
     {
       label: 'Win Rate',
       value: `${winRate}%`,
-      sub: `${wonCountInPeriod} won / ${lostCountInPeriod} lost (${periodLabel.toLowerCase()})`,
+      sub: `${wonCountInPeriod} won (${fmtShort(accruedTcv)}) / ${lostCountInPeriod} lost (${fmtShort(lostValueInPeriod)})`,
       icon: Target,
       gradient: 'from-violet-500 to-violet-600',
       bg: 'bg-violet-50',
       text: 'text-violet-600',
       valueCls: 'text-violet-900',
+      onClick: () => setDrillDownData({ title: 'Win / Loss Performance', subtitle: `${wonCountInPeriod} Won & ${lostCountInPeriod} Lost deals`, deals: [...wonInPeriodDeals, ...lostInPeriodDeals] }),
     },
     {
       label: 'Deals Stagnan (>7 Hari)',
@@ -1241,13 +1248,20 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
       {/* ── Drill-Down Modal ── */}
       <Dialog open={!!drillDownData} onOpenChange={(v) => !v && setDrillDownData(null)}>
         <DialogContent container={deckRef.current} className="sm:max-w-[800px] max-h-[85vh] flex flex-col p-0 overflow-hidden bg-white border-slate-200/60 shadow-xl rounded-2xl">
-          <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/80 shrink-0">
-            <DialogTitle className="text-xl font-bold text-slate-800">{drillDownData?.title}</DialogTitle>
-            {drillDownData?.subtitle && (
-              <DialogDescription className="text-slate-500 font-medium mt-1">
-                {drillDownData.subtitle}
-              </DialogDescription>
-            )}
+          <DialogHeader className="px-6 py-5 border-b border-indigo-100/50 bg-gradient-to-r from-slate-50 to-indigo-50/40 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100/50 text-indigo-600 rounded-lg shadow-sm">
+                <Target className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-slate-800">{drillDownData?.title}</DialogTitle>
+                {drillDownData?.subtitle && (
+                  <DialogDescription className="text-slate-500 font-medium mt-0.5">
+                    {drillDownData.subtitle}
+                  </DialogDescription>
+                )}
+              </div>
+            </div>
           </DialogHeader>
           <div className="flex-1 overflow-hidden min-h-0 bg-white">
             <ScrollArea className="h-full">
@@ -1271,16 +1285,16 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                     </TableRow>
                   ) : (
                     drillDownData.deals.map((deal) => (
-                      <TableRow key={deal.id} className="hover:bg-slate-50/50 transition-colors border-slate-100/50">
-                        <TableCell className="font-medium text-slate-800 pl-6 py-4">
+                      <TableRow key={deal.id} className="hover:bg-indigo-50/30 transition-colors border-slate-100/50 group">
+                        <TableCell className="font-medium text-slate-800 pl-6 py-4 max-w-[250px] break-words whitespace-normal leading-relaxed">
                           <Link href={`/opportunities/${deal.id}`} target="_blank" className="hover:text-indigo-600 hover:underline">
                             {deal.opportunity_name}
                           </Link>
                         </TableCell>
-                        <TableCell className="text-slate-600">{deal.customer_name}</TableCell>
+                        <TableCell className="text-slate-600 max-w-[150px] break-words whitespace-normal">{deal.customer_name}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn(
-                            "font-medium tracking-tight",
+                            "font-semibold tracking-tight rounded-full px-3 py-0.5 shadow-sm",
                             deal.stage === 'Won' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                               deal.stage === 'Lost' ? "bg-rose-50 text-rose-700 border-rose-200" :
                                 "bg-indigo-50 text-indigo-700 border-indigo-200"
@@ -1288,13 +1302,13 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
                             {deal.stage}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-medium text-slate-700 whitespace-nowrap">
+                        <TableCell className="text-right font-medium text-slate-600 whitespace-nowrap">
                           {formatCurrency(getRevenueSplit(deal).mrr)}
                         </TableCell>
-                        <TableCell className="text-right font-medium text-slate-700 whitespace-nowrap">
+                        <TableCell className="text-right font-medium text-slate-600 whitespace-nowrap">
                           {formatCurrency(getRevenueSplit(deal).otc)}
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-slate-700 pr-6 whitespace-nowrap">
+                        <TableCell className="text-right font-bold text-slate-700 pr-6 whitespace-nowrap group-hover:text-indigo-700 transition-colors">
                           {formatCurrency(getRevenueSplit(deal).tcv)}
                         </TableCell>
                       </TableRow>
@@ -1309,11 +1323,18 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
       {/* ── Log Activity Modal ── */}
       <Dialog open={!!logActivityOpty} onOpenChange={(v) => !v && setLogActivityOpty(null)}>
         <DialogContent container={deckRef.current} className="sm:max-w-[500px] rounded-2xl shadow-xl border-slate-200/60 p-0 overflow-hidden bg-white">
-          <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/80">
-            <DialogTitle className="text-xl font-bold text-slate-800">Log Activity</DialogTitle>
-            <DialogDescription className="mt-1 text-slate-500">
-              {logActivityOpty?.opportunity_name}
-            </DialogDescription>
+          <DialogHeader className="px-6 py-5 border-b border-indigo-100/50 bg-gradient-to-r from-slate-50 to-indigo-50/40">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100/50 text-indigo-600 rounded-lg shadow-sm">
+                <PenSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-slate-800">Log Activity</DialogTitle>
+                <DialogDescription className="mt-0.5 text-slate-500 font-medium">
+                  {logActivityOpty?.opportunity_name}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           <div className="p-6 pb-2">
             <p className="text-sm text-slate-600 mb-3 font-medium">Catat instruksi atau tindak lanjut:</p>
@@ -1321,12 +1342,12 @@ export function MeetingDeckClient({ opportunities, activities, stages }: {
               placeholder="Misal: Follow up via telp besok pagi..."
               value={activityNote}
               onChange={(e) => setActivityNote(e.target.value)}
-              className="min-h-[120px] resize-none focus-visible:ring-indigo-500 rounded-xl"
+              className="min-h-[120px] resize-none focus-visible:ring-indigo-500 rounded-xl bg-slate-50 focus:bg-white transition-colors shadow-sm"
             />
           </div>
           <DialogFooter className="px-6 py-4 bg-slate-50/50 border-t border-slate-100">
-            <Button variant="outline" onClick={() => setLogActivityOpty(null)} className="rounded-full">Batal</Button>
-            <Button onClick={handleLogActivity} disabled={isLogging || !activityNote.trim()} className="rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-200">
+            <Button variant="outline" onClick={() => setLogActivityOpty(null)} className="rounded-full hover:bg-slate-100">Batal</Button>
+            <Button onClick={handleLogActivity} disabled={isLogging || !activityNote.trim()} className="rounded-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 shadow-md shadow-indigo-200/50 text-white font-medium">
               {isLogging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Simpan & Update
             </Button>

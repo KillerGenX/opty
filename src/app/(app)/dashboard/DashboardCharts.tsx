@@ -37,21 +37,32 @@ export function DashboardCharts({ opportunities, stages }: DashboardChartsProps)
   }, [opportunities])
 
   const pillarData = useMemo(() => {
-    const pillars: Record<string, number> = {}
+    const pillars: Record<string, { value: number, count: number, optyIds: Set<string> }> = {}
     opportunities.forEach(opty => {
       if (opty.opportunity_line_items?.length > 0) {
         opty.opportunity_line_items.forEach((item: any) => {
           const p = item.pillar || 'Other'
-          pillars[p] = (pillars[p] || 0) + (item.total_price || 0)
+          if (!pillars[p]) pillars[p] = { value: 0, count: 0, optyIds: new Set() }
+          pillars[p].value += (item.total_price || 0)
+          if (!pillars[p].optyIds.has(opty.id)) {
+            pillars[p].optyIds.add(opty.id)
+            pillars[p].count++
+          }
         })
       } else {
         // Fallback to 'Uncategorized' if no line items
-        pillars['Uncategorized'] = (pillars['Uncategorized'] || 0) + Number(opty.total_value || 0)
+        const p = 'Uncategorized'
+        if (!pillars[p]) pillars[p] = { value: 0, count: 0, optyIds: new Set() }
+        pillars[p].value += Number(opty.total_value || 0)
+        if (!pillars[p].optyIds.has(opty.id)) {
+          pillars[p].optyIds.add(opty.id)
+          pillars[p].count++
+        }
       }
     })
     
     return Object.entries(pillars)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, data]) => ({ name, value: data.value, count: data.count }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value)
   }, [opportunities])
@@ -106,8 +117,20 @@ export function DashboardCharts({ opportunities, stages }: DashboardChartsProps)
                     ))}
                   </Pie>
                   <RechartsTooltip 
-                    formatter={(value: any) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value))}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    content={({ active, payload }: any) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white p-3 rounded-xl shadow-lg border border-slate-100 min-w-[150px]">
+                            <p className="font-semibold text-slate-800 mb-1">{data.name}</p>
+                            <p className="text-indigo-600 font-bold mb-1">{formatCurrency(data.value)}</p>
+                            <p className="text-slate-500 text-xs font-medium">{data.count} deals</p>
+                          </div>
+                        )
+                      }
+                      return null;
+                    }}
+                    cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
