@@ -6,11 +6,17 @@ import { GoogleGenAI } from '@google/genai'
 
 
 
-const ai = new GoogleGenAI({
-  vertexai: true,
-  project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
-  location: 'us-central1'
-})
+let aiInstance: GoogleGenAI | null = null
+function getAi() {
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({
+      vertexai: true,
+      project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
+      location: 'us-central1'
+    })
+  }
+  return aiInstance
+}
 
 export async function POST(req: Request) {
   try {
@@ -115,7 +121,7 @@ Answer the user's questions strictly based on the context above. If they provide
       currentParts.push({ text: message })
     }
 
-    const chatSession = ai.chats.create({
+    const chatSession = getAi().chats.create({
       model: 'gemini-2.5-flash',
       config: {
         systemInstruction: systemPrompt,

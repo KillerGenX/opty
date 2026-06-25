@@ -6,11 +6,17 @@ import { GoogleGenAI } from '@google/genai'
 
 
 
-const ai = new GoogleGenAI({
-  vertexai: true,
-  project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
-  location: 'us-central1'
-})
+let aiInstance: GoogleGenAI | null = null
+function getAi() {
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({
+      vertexai: true,
+      project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
+      location: 'us-central1'
+    })
+  }
+  return aiInstance
+}
 
 export async function POST(req: Request) {
   try {
@@ -102,7 +108,7 @@ Return ONLY a raw JSON object with exactly these 5 keys (all strings):
 Do not wrap in \`\`\`json blocks.
 `
 
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [{ text: prompt }],
       config: {

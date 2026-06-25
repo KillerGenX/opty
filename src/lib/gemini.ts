@@ -2,11 +2,17 @@ import '@/lib/gcp-setup'
 import { GoogleGenAI } from '@google/genai'
 
 // Initialize Google Gen AI with Vertex AI configuration
-const ai = new GoogleGenAI({
-  vertexai: true,
-  project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
-  location: 'us-central1'
-})
+let aiInstance: GoogleGenAI | null = null
+function getAi() {
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({
+      vertexai: true,
+      project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
+      location: 'us-central1'
+    })
+  }
+  return aiInstance
+}
 
 const model = 'gemini-2.5-flash'
 
@@ -32,7 +38,7 @@ export async function generateContent(
       contents.push(referenceImage)
     }
 
-    const responseStream = await ai.models.generateContentStream({
+    const responseStream = await getAi().models.generateContentStream({
       model: model,
       contents: contents,
       config: {
@@ -132,7 +138,7 @@ If the document is a hardware/ICT procurement (e.g. CCTV, Servers, Software):
 `
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAi().models.generateContent({
       model: model,
       contents: parts,
       config: {
@@ -174,7 +180,7 @@ If the document is a hardware/ICT procurement (e.g. CCTV, Servers, Software):
 
 export async function generateConceptImage(prompt: string) {
   try {
-    const response = await ai.models.generateImages({
+    const response = await getAi().models.generateImages({
       model: 'imagen-3.0-generate-001',
       prompt: prompt,
       config: {
