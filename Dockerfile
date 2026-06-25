@@ -26,6 +26,10 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Inject Public Supabase Keys for Next.js Static Pre-rendering
+ENV NEXT_PUBLIC_SUPABASE_URL="https://nimoalpohwxlfibikgca.supabase.co"
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbW9hbHBvaHd4bGZpYmlrZ2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzOTY3MjksImV4cCI6MjA5Njk3MjcyOX0.xWzraYWU0gYJrmoTcxurJ3nyHNpoZJla7Hvvh4X2F10"
+
 RUN \
   if [ -f yarn.lock ]; then yarn run build; \
   elif [ -f package-lock.json ]; then npm run build; \
