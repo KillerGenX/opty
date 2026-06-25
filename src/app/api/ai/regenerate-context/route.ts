@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import '@/lib/gcp-setup'
 import { GoogleGenAI } from '@google/genai'
 
-export const maxDuration = 60; // Increase max duration for Vercel
+
 
 
 const ai = new GoogleGenAI({

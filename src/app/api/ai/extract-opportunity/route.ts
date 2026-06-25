@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { extractOpportunityData } from "@/lib/gemini"
 import { createClient } from "@/lib/supabase/server"
 
-export const maxDuration = 60; // Increase max duration for Vercel if needed
+
 
 export async function POST(req: NextRequest) {
   try {
