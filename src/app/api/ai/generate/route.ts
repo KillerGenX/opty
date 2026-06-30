@@ -58,11 +58,25 @@ export async function POST(req: Request) {
       })
     }
 
-    // Generate prompt
-    const prompt = getPrompt(docType, opty, lineItems || [])
-
-    // Call Gemini
-    let htmlContent = await generateContent(prompt, referenceImage, enhancedContext, previousDraft)
+    // Generate and Call Gemini
+    let htmlContent = "";
+    let prompt = "";
+    
+    if (docType === 'customer_proposal') {
+      const promptPart1 = getPrompt(docType, opty, lineItems || [], 1)
+      prompt = promptPart1; // Save part 1 as the prompt used for DB reference
+      const contentPart1 = await generateContent(promptPart1, referenceImage, enhancedContext, previousDraft)
+      
+      const promptPart2 = getPrompt(docType, opty, lineItems || [], 2)
+      // For part 2, we shouldn't send the reference image again to save tokens if it's not strictly needed for sections 10-18, 
+      // but let's pass it anyway just in case the context is needed.
+      const contentPart2 = await generateContent(promptPart2, referenceImage, enhancedContext, previousDraft)
+      
+      htmlContent = contentPart1 + '\n\n' + contentPart2
+    } else {
+      prompt = getPrompt(docType, opty, lineItems || [])
+      htmlContent = await generateContent(prompt, referenceImage, enhancedContext, previousDraft)
+    }
 
     if (docType === 'concept_art') {
       try {
