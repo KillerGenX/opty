@@ -171,25 +171,30 @@ If the document is a hardware/ICT procurement (e.g. CCTV, Servers, Software):
   }
 }
 
-export async function generateConceptImage(prompt: string) {
+export async function generateConceptImage(prompt: string, referenceImage?: { inlineData: { data: string, mimeType: string } }) {
   try {
-    const response = await getAi().models.generateImages({
-      model: 'imagen-3.0-generate-001',
-      prompt: prompt,
-      config: {
-        numberOfImages: 1,
-        outputMimeType: 'image/jpeg',
-        aspectRatio: '16:9'
-      }
-    });
-
-    if (response.generatedImages && response.generatedImages.length > 0) {
-      const imgBytes = response.generatedImages[0].image?.imageBytes;
-      if (imgBytes) return imgBytes;
+    // Gemini 3 Pro Image (Nano Banana Pro) uses the global endpoint via standard models API
+    // Through Vertex AI, the correct method for this reasoning image model is generateContent
+    
+    const contents: any[] = [{ text: prompt }];
+    if (referenceImage) {
+      contents.push(referenceImage);
     }
-    throw new Error('No image generated');
+    
+    const response = await getAi().models.generateContent({
+       model: 'gemini-3-pro-image',
+       contents: contents
+    });
+    
+    const parts = response.candidates?.[0]?.content?.parts;
+    const imagePart = parts?.find((p: any) => p.inlineData);
+    
+    if (imagePart?.inlineData?.data) {
+       return imagePart.inlineData.data;
+    }
+    throw new Error("Failed to extract inlineData image from Gemini 3 Pro Image response.");
   } catch (error) {
-    console.error('Error generating image from Google Gen AI:', error);
-    throw error;
+    console.error('Error generating image from Gemini 3 Pro Image:', error)
+    throw error
   }
 }
