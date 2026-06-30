@@ -5,9 +5,10 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Loader2, Printer, Eye, FileSpreadsheet } from "lucide-react"
+import { Download, FileText, Printer, FileSpreadsheet, Loader2, RefreshCw, Eye } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { GenerateOptionsDialog } from "./GenerateOptionsDialog"
+import { toast } from "sonner"
 import { ActionPlanViewer } from "./ActionPlanViewer"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { cn } from "@/lib/utils"
@@ -21,6 +22,7 @@ interface AIDocumentsTabProps {
 const DOCUMENTS = [
   { id: 'design', title: 'ES Action Plan & Insights', desc: 'AI analysis, risk assessment, and recommended next steps.' },
   { id: 'opportunity_proposal', title: 'Opportunity Proposal', desc: 'Internal Deal Memo.' },
+  { id: 'customer_proposal', title: 'Customer Solution Proposal', desc: 'External pitch document framework for customers.' },
   { id: 'timeline', title: 'Implementation Timeline', desc: 'Project phases and milestones formatted as Gantt Chart.' },
   { id: 'boq', title: 'Bill of Quantities (BoQ)', desc: 'Structured table of all line items and specifications.' },
   { id: 'concept_art', title: 'Solution Concept Art', desc: 'AI-generated visual illustration of the proposed solution.' },
@@ -92,8 +94,12 @@ export function AIDocumentsTab({ opportunityId, opportunityName, completenessSco
       const { document } = await res.json()
       setDocs(prev => ({ ...prev, [docId]: document }))
       setOptionsDialogState(prev => ({ ...prev, open: false }))
+      const docTitle = DOCUMENTS.find(d => d.id === docId)?.title || 'Dokumen'
+      toast.success(`${docTitle} berhasil di-generate!`)
     } catch (error: any) {
-      alert(error.message)
+      toast.error('Gagal memproses AI', { 
+        description: error.message || 'Terjadi kesalahan saat memproses permintaan Anda.'
+      })
     } finally {
       setGenerating(null)
     }
@@ -220,6 +226,10 @@ export function AIDocumentsTab({ opportunityId, opportunityName, completenessSco
               .obj-client { background: #f8fafc; padding: 10px 12px; margin: 0; color: #475569; border-bottom: 1px solid #e2e8f0; font-style: italic; }
               .obj-kita { background: #f5f3ff; padding: 10px 12px; margin: 0; color: #5b21b6; }
               .avoid-break { page-break-inside: avoid; }
+              .page-break { page-break-after: always; }
+              @media print {
+                .page-break { page-break-after: always !important; }
+              }
             </style>
           </head>
           <body>
@@ -270,6 +280,37 @@ export function AIDocumentsTab({ opportunityId, opportunityName, completenessSco
     const a = document.createElement('a')
     a.href = url
     a.download = `${filename}.xls`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadWord = (docId: string, htmlContent: string, filename: string) => {
+    const finalHtml = getPrintableHtml(docId, htmlContent, filename);
+    const blob = new Blob([`
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.5; color: #1e293b; }
+          h1, h2, h3 { color: #0f172a; }
+          table { border-collapse: collapse; width: 100%; font-size: 11pt; margin-bottom: 15px; }
+          th, td { border: 1pt solid #cbd5e1; padding: 8px; text-align: left; }
+          th { background-color: #f1f5f9; font-weight: bold; }
+          .page-break { page-break-after: always; }
+          br.page-break { mso-special-character: line-break; page-break-before: always; }
+        </style>
+      </head>
+      <body>
+        ${finalHtml.replace(/<div style="page-break-after: always;"><\/div>/g, '<br clear="all" style="page-break-before:always" />')}
+      </body>
+      </html>
+    `], { type: 'application/msword' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}.doc`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -351,7 +392,7 @@ export function AIDocumentsTab({ opportunityId, opportunityName, completenessSco
                 </div>
 
                 {isGenerated && (
-                  <div className={cn("grid gap-2 w-full mt-2", (doc.id === 'boq' || doc.id === 'timeline') ? "grid-cols-2" : "grid-cols-1")}>
+                  <div className="grid gap-2 w-full mt-2 grid-cols-2">
                     <Button
                       variant="secondary"
                       className="w-full text-xs"
@@ -359,13 +400,21 @@ export function AIDocumentsTab({ opportunityId, opportunityName, completenessSco
                     >
                       <Printer className="mr-2 h-3 w-3" /> PDF
                     </Button>
-                    {(doc.id === 'boq' || doc.id === 'timeline') && (
+                    {(doc.id === 'boq' || doc.id === 'timeline') ? (
                       <Button
                         variant="secondary"
                         className="w-full text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
                         onClick={() => downloadExcel(doc.id, docData.content_html, `${doc.title} - ${opportunityName || opportunityId}`)}
                       >
                         <FileSpreadsheet className="mr-2 h-3 w-3" /> Excel
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        className="w-full text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                        onClick={() => downloadWord(doc.id, docData.content_html, `${doc.title} - ${opportunityName || opportunityId}`)}
+                      >
+                        <FileText className="mr-2 h-3 w-3" /> Word
                       </Button>
                     )}
                   </div>

@@ -13,6 +13,7 @@ import { Building2, FileText, Target, BrainCircuit, Loader2, Plus, Trash2, Spark
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MagicImportDialog } from "./MagicImportDialog"
 import { MasterSetting, ProductCatalog, LineItem } from "@/types"
+import { toast } from "sonner"
 
 const FALLBACK_TYPES = ["Connectivity", "Cloud Solutions", "Cyber Security", "Managed Services", "IoT / Smart City"];
 const FALLBACK_SEGMENTS = ["Enterprise", "SME", "Government", "Wholesale"];
@@ -288,7 +289,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
 
       if (!response.ok) {
         const error = await response.json();
-        alert(`Error: ${error.error}`);
+        toast.error('AI Gagal Memproses', { description: error.error || 'Terjadi kesalahan internal.' });
         return;
       }
 
@@ -300,10 +301,12 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
       if (updatedFields.technical_requirements) handleChange('technical_requirements', updatedFields.technical_requirements);
       if (updatedFields.constraints) handleChange('constraints', updatedFields.constraints);
       if (updatedFields.competitors) handleChange('competitors', updatedFields.competitors);
+      
+      toast.success('Konteks berhasil di-generate oleh AI!');
 
     } catch (error) {
       console.error('Error generating AI context:', error);
-      alert('Failed to generate context from AI.');
+      toast.error('Gagal menghubungi AI', { description: 'Koneksi terputus atau server sedang sibuk.' });
     } finally {
       setIsRegeneratingContext(false);
     }

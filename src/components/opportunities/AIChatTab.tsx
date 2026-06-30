@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Send, Loader2, Sparkles, User, Trash2, Paperclip, X } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { toast } from "sonner"
 
 interface AIChatTabProps {
   opportunityId: string
@@ -105,10 +106,11 @@ export function AIChatTab({ opportunityId, opportunityName }: AIChatTabProps) {
       // Refresh to get actual DB IDs and emails
       await fetchHistory()
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat error", error)
       // Remove optimistic message if failed
       setMessages(prev => prev.filter(m => m.id !== tempId))
+      toast.error('Gagal mengirim pesan', { description: 'Tolong coba lagi beberapa saat.' })
     } finally {
       setSending(false)
     }
