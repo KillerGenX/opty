@@ -56,6 +56,7 @@ export interface LineItem {
   product_name: string
   specification: string | null
   quantity: number
+  capacity?: string
   unit: string | null
   mrc: number
   otc: number

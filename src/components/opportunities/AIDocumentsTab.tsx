@@ -9,6 +9,7 @@ import { FileText, Loader2, Printer, Eye, FileSpreadsheet } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { GenerateOptionsDialog } from "./GenerateOptionsDialog"
 import { ActionPlanViewer } from "./ActionPlanViewer"
+import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { cn } from "@/lib/utils"
 
 interface AIDocumentsTabProps {
@@ -387,23 +388,25 @@ export function AIDocumentsTab({ opportunityId, opportunityName, completenessSco
           "flex flex-col bg-white dark:bg-zinc-950 overflow-hidden",
           previewDoc?.id === 'design' ? "sm:max-w-[1000px] p-0 border-none bg-transparent shadow-none" : "sm:max-w-[800px] max-h-[85vh] p-6"
         )}>
-          {previewDoc?.id === 'design' ? (
-            <ActionPlanViewer htmlContent={previewDoc.content} onClose={() => setPreviewDoc(null)} />
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-emerald-800 dark:text-emerald-400">
-                  {previewDoc?.title}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto mt-4 pr-2">
-                <div
-                  className="prose prose-sm md:prose-base dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: previewDoc?.content || '' }}
-                />
-              </div>
-            </>
-          )}
+          <ErrorBoundary>
+            {previewDoc?.id === 'design' ? (
+              <ActionPlanViewer htmlContent={previewDoc.content} onClose={() => setPreviewDoc(null)} />
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-emerald-800 dark:text-emerald-400">
+                    {previewDoc?.title}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto mt-4 pr-2">
+                  <div
+                    className="prose prose-sm md:prose-base dark:prose-invert max-w-none"
+                    dangerouslySetInnerHTML={{ __html: previewDoc?.content || '' }}
+                  />
+                </div>
+              </>
+            )}
+          </ErrorBoundary>
         </DialogContent>
       </Dialog>
     </div>

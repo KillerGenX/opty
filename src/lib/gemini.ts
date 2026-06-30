@@ -3,7 +3,7 @@ import { GoogleGenAI } from '@google/genai'
 
 // Initialize Google Gen AI with Vertex AI configuration
 let aiInstance: GoogleGenAI | null = null
-function getAi() {
+export function getAi() {
   if (!aiInstance) {
     aiInstance = new GoogleGenAI({
       vertexai: true,
@@ -162,14 +162,6 @@ If the document is a hardware/ICT procurement (e.g. CCTV, Servers, Software):
       return JSON.parse(cleanedText)
     } catch (parseError) {
       console.error('Error parsing JSON from Google Gen AI:', parseError)
-      // DUMP THE FAILED TEXT TO A FILE FOR DEBUGGING
-      try {
-        const fs = require('fs')
-        fs.writeFileSync('failed_json.txt', text, 'utf8')
-        console.log('Dumped failed JSON to failed_json.txt')
-      } catch (e) {
-        console.error('Failed to dump error log', e)
-      }
       throw parseError
     }
   } catch (error) {

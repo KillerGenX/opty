@@ -96,7 +96,7 @@ export function AIChatTab({ opportunityId, opportunityName }: AIChatTabProps) {
           opportunityId,
           message: userMessageContent,
           imageBase64: currentAttachedImage,
-          chatHistory: messages.map(m => ({ role: m.role, content: m.content }))
+          chatHistory: messages.map(m => ({ role: m.role, content: m.content })).slice(-20)
         })
       })
 

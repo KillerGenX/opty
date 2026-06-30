@@ -1,22 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import '@/lib/gcp-setup'
-import { GoogleGenAI } from '@google/genai'
 
 
 
-
-let aiInstance: GoogleGenAI | null = null
-function getAi() {
-  if (!aiInstance) {
-    aiInstance = new GoogleGenAI({
-      vertexai: true,
-      project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
-      location: 'us-central1'
-    })
-  }
-  return aiInstance
-}
+import { getAi } from '@/lib/gemini'
 
 export async function POST(req: Request) {
   try {
@@ -43,7 +30,7 @@ export async function POST(req: Request) {
     // Fetch AI Documents history
     const { data: documents } = await supabase
       .from('opportunity_documents')
-      .select('doc_type, content, version')
+      .select('doc_type, content_html, version')
       .eq('opportunity_id', opportunityId)
       .order('created_at', { ascending: true })
 
@@ -74,7 +61,9 @@ export async function POST(req: Request) {
     if (documents && documents.length > 0) {
       contextData += "### EXISTING AI GENERATED DOCUMENTS\n"
       documents.forEach(doc => {
-        contextData += `[Doc: ${doc.doc_type} - v${doc.version}]\n${doc.content.substring(0, 500)}...\n\n` // Snippet
+        if (doc.content_html) {
+          contextData += `[Doc: ${doc.doc_type} - v${doc.version}]\n${doc.content_html.substring(0, 500)}...\n\n` // Snippet
+        }
       })
     }
 

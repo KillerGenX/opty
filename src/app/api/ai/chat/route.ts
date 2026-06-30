@@ -1,22 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import '@/lib/gcp-setup'
-import { GoogleGenAI } from '@google/genai'
 
 
 
-
-let aiInstance: GoogleGenAI | null = null
-function getAi() {
-  if (!aiInstance) {
-    aiInstance = new GoogleGenAI({
-      vertexai: true,
-      project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
-      location: 'us-central1'
-    })
-  }
-  return aiInstance
-}
+import { getAi } from '@/lib/gemini'
 
 export async function POST(req: Request) {
   try {

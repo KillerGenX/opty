@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Trash2, Plus, Save, MapPin, Building, Cable, Hash, Wifi, Sparkles, FileText, Upload, ImageIcon, Loader2, CheckCircle2, Eye, PlusCircle } from "lucide-react"
+import { ProductCatalog } from "@/types"
 
 
 interface LineItem {
@@ -86,7 +87,7 @@ export function LineItemsEditor({ opportunityId }: { opportunityId: string }) {
   const [items, setItems] = useState<LineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [productCatalog, setProductCatalog] = useState<any[]>([])
+  const [productCatalog, setProductCatalog] = useState<ProductCatalog[]>([])
   const supabase = createClient()
   const router = useRouter()
 

@@ -40,6 +40,10 @@ arcane-splicer*.json
 vercel_base64_key.txt
 failed_json.txt
 
+# Scratch files
+check_schema.js
+scratch_query.js
+
 # vercel
 .vercel
 

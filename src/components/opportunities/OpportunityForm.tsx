@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Building2, FileText, Target, BrainCircuit, Loader2, Plus, Trash2, Sparkles } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MagicImportDialog } from "./MagicImportDialog"
+import { MasterSetting, ProductCatalog, LineItem } from "@/types"
 
 const FALLBACK_TYPES = ["Connectivity", "Cloud Solutions", "Cyber Security", "Managed Services", "IoT / Smart City"];
 const FALLBACK_SEGMENTS = ["Enterprise", "SME", "Government", "Wholesale"];
@@ -51,14 +52,14 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
-  const [extractedLineItems, setExtractedLineItems] = useState<any[]>([])
-  const [historicalCustomers, setHistoricalCustomers] = useState<any[]>([])
-  const [masterSettings, setMasterSettings] = useState<any[]>([])
-  const [productCatalog, setProductCatalog] = useState<any[]>([])
+  const [extractedLineItems, setExtractedLineItems] = useState<Partial<LineItem>[]>([])
+  const [historicalCustomers, setHistoricalCustomers] = useState<{ customer_name: string, customer_segment: string, customer_industry: string, customer_pic: string, customer_contact: string, customer_address: string }[]>([])
+  const [masterSettings, setMasterSettings] = useState<MasterSetting[]>([])
+  const [productCatalog, setProductCatalog] = useState<ProductCatalog[]>([])
   const [isRegeneratingContext, setIsRegeneratingContext] = useState(false)
   
   const [currentStep, setCurrentStep] = useState(1)
-  const [manualLineItems, setManualLineItems] = useState<any[]>([])
+  const [manualLineItems, setManualLineItems] = useState<Partial<LineItem>[]>([])
   useEffect(() => {
     // Fetch unique historical customers for autocomplete
     const fetchCustomers = async () => {
@@ -95,7 +96,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
     }
     
     const fetchCatalog = async () => {
-      const { data } = await supabase.from('product_catalog').select('pillar_name').order('pillar_name')
+      const { data } = await supabase.from('product_catalog').select('*').order('pillar_name')
       if (data) setProductCatalog(data)
     }
     
@@ -745,21 +746,21 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
                           {manualLineItems.map((item, idx) => (
                             <TableRow key={`manual-${idx}`} className="align-top">
                               <TableCell className="p-2">
-                                <Select value={item.pillar} onValueChange={(v) => handleManualItemChange(idx, 'pillar', v)}>
+                                <Select value={item.pillar || ''} onValueChange={(v) => handleManualItemChange(idx, 'pillar', v)}>
                                   <SelectTrigger className="h-8 mb-2 text-xs"><SelectValue placeholder="Pillar" /></SelectTrigger>
                                   <SelectContent>
                                     {catalogPillars.map(p => <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
-                                <Input className="h-8 text-xs font-medium" placeholder="Product name" value={item.product_name} onChange={e => handleManualItemChange(idx, 'product_name', e.target.value)} />
+                                <Input className="h-8 text-xs font-medium" placeholder="Product name" value={item.product_name || ''} onChange={e => handleManualItemChange(idx, 'product_name', e.target.value)} />
                               </TableCell>
                               <TableCell className="p-2">
-                                <Textarea className="min-h-[32px] text-xs p-2 mb-2" placeholder="Specs..." value={item.specification} onChange={e => handleManualItemChange(idx, 'specification', e.target.value)} />
-                                <Input className="h-8 text-xs" placeholder="Capacity (e.g. 100 Mbps)" value={item.capacity} onChange={e => handleManualItemChange(idx, 'capacity', e.target.value)} />
+                                <Textarea className="min-h-[32px] text-xs p-2 mb-2" placeholder="Specs..." value={item.specification || ''} onChange={e => handleManualItemChange(idx, 'specification', e.target.value)} />
+                                <Input className="h-8 text-xs" placeholder="Capacity (e.g. 100 Mbps)" value={item.capacity || ''} onChange={e => handleManualItemChange(idx, 'capacity', e.target.value)} />
                               </TableCell>
                               <TableCell className="p-2">
                                 <Input type="number" className="h-8 mb-2 text-xs" placeholder="Qty" value={item.quantity || ''} onChange={e => handleManualItemChange(idx, 'quantity', e.target.value)} />
-                                <Input className="h-8 text-xs" placeholder="Unit (e.g. circuit)" value={item.unit} onChange={e => handleManualItemChange(idx, 'unit', e.target.value)} />
+                                <Input className="h-8 text-xs" placeholder="Unit (e.g. circuit)" value={item.unit || ''} onChange={e => handleManualItemChange(idx, 'unit', e.target.value)} />
                               </TableCell>
                               <TableCell className="p-2">
                                 <div className="relative mb-2">
@@ -773,7 +774,7 @@ export function OpportunityForm({ initialData, isEdit = false }: OpportunityForm
                               </TableCell>
                               <TableCell className="p-2">
                                 <Input type="number" className="h-8 mb-2 text-xs" placeholder="Contract (Mo)" value={item.contract_term || ''} onChange={e => handleManualItemChange(idx, 'contract_term', e.target.value)} />
-                                <Input className="h-8 text-xs" placeholder="Site A" value={item.site_a} onChange={e => handleManualItemChange(idx, 'site_a', e.target.value)} />
+                                <Input className="h-8 text-xs" placeholder="Site A" value={item.site_a || ''} onChange={e => handleManualItemChange(idx, 'site_a', e.target.value)} />
                               </TableCell>
                               <TableCell className="p-2 text-right">
                                 <Button variant="ghost" size="icon" type="button" onClick={() => handleRemoveManualItem(idx)} className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50"><Trash2 className="h-4 w-4" /></Button>

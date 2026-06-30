@@ -1,4 +1,6 @@
-export const generatePromptContext = (opty: any, lineItems: any[], outputFormat: 'html' | 'json' = 'html') => {
+import { Opportunity, LineItem } from '@/types'
+
+export const generatePromptContext = (opty: Opportunity | any, lineItems: LineItem[], outputFormat: 'html' | 'json' = 'html') => {
   const currentDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   
   let context = `
@@ -43,7 +45,7 @@ ${lineItems.map(item => `- [${item.pillar}] ${item.product_name} | Qty: ${item.q
   return context;
 }
 
-export const getPrompt = (docType: string, opty: any, lineItems: any[]) => {
+export const getPrompt = (docType: string, opty: Opportunity | any, lineItems: LineItem[]) => {
   let outputFormat: 'html' | 'json' = 'html'
   if (docType === 'design' || docType === 'concept_art') {
     outputFormat = 'json'

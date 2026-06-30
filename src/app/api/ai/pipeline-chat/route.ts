@@ -1,24 +1,18 @@
 import { NextResponse } from 'next/server'
-import '@/lib/gcp-setup'
-import { GoogleGenAI } from '@google/genai'
 
 
 
-
-let aiInstance: GoogleGenAI | null = null
-function getAi() {
-  if (!aiInstance) {
-    aiInstance = new GoogleGenAI({
-      vertexai: true,
-      project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
-      location: 'us-central1'
-    })
-  }
-  return aiInstance
-}
+import { getAi } from '@/lib/gemini'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const payload = await req.json()
     const { message, history, context } = payload
 
