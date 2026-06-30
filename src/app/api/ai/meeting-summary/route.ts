@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 
 
-import { getAi } from '@/lib/gemini'
+import { getAi, MODEL_SMART } from '@/lib/gemini'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
@@ -72,7 +72,7 @@ ATURAN PENULISAN:
 Tulis Executive Brief Anda:`
 
     const response = await getAi().models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: MODEL_SMART,
       contents: prompt,
       config: {
         temperature: 0.7,

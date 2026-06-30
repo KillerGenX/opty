@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 
 
-import { getAi } from '@/lib/gemini'
+import { getAi, MODEL_SMART } from '@/lib/gemini'
 
 export async function POST(req: Request) {
   try {
@@ -52,7 +52,9 @@ export async function POST(req: Request) {
 
     if (chatHistory && chatHistory.length > 0) {
       contextData += "### RECENT AI CHAT HISTORY (USER DISCUSSIONS)\n"
-      chatHistory.forEach(chat => {
+      // Only include the last 10 messages to avoid token bloat
+      const recentChats = chatHistory.slice(-10)
+      recentChats.forEach(chat => {
         const sender = chat.role === 'user' ? chat.user_email || 'User' : 'Opty AI'
         contextData += `[${new Date(chat.created_at).toLocaleString()}] ${sender}:\n${chat.content}\n\n`
       })
@@ -98,7 +100,7 @@ Do not wrap in \`\`\`json blocks.
 `
 
     const response = await getAi().models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: MODEL_SMART,
       contents: [{ text: prompt }],
       config: {
         responseMimeType: "application/json",

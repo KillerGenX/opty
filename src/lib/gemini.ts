@@ -8,13 +8,14 @@ export function getAi() {
     aiInstance = new GoogleGenAI({
       vertexai: true,
       project: process.env.GOOGLE_CLOUD_PROJECT_ID as string,
-      location: 'us-central1'
+      location: 'global'
     })
   }
   return aiInstance
 }
 
-const model = 'gemini-2.5-flash'
+export const MODEL_FAST = 'gemini-3.5-flash' // Fast, cheap, for data extraction
+export const MODEL_SMART = 'gemini-3.1-pro-preview' // Deep reasoning, complex generation
 
 export async function generateContent(
   prompt: string,
@@ -39,7 +40,7 @@ export async function generateContent(
     }
 
     const responseStream = await getAi().models.generateContentStream({
-      model: model,
+      model: MODEL_SMART,
       contents: contents,
       config: {
         maxOutputTokens: 8192,
@@ -139,7 +140,7 @@ If the document is a hardware/ICT procurement (e.g. CCTV, Servers, Software):
 
   try {
     const response = await getAi().models.generateContent({
-      model: model,
+      model: MODEL_FAST,
       contents: parts,
       config: {
         maxOutputTokens: 8192,

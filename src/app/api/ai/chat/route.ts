@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 
 
-import { getAi } from '@/lib/gemini'
+import { getAi, MODEL_SMART } from '@/lib/gemini'
 
 export async function POST(req: Request) {
   try {
@@ -51,16 +51,25 @@ ${lineItems?.map((item: any) => `- [${item.pillar}] ${item.product_name} | Qty: 
 `
     if (documents && documents.length > 0) {
       documents.forEach(doc => {
-        // Strip HTML tags for token efficiency if it's too long, but we have 2M context, so raw is fine.
-        systemPrompt += `\n--- Document Type: ${doc.doc_type} ---\n${doc.content_html}\n`
+        // Strip HTML tags for token efficiency using simple regex, and truncate if still too long
+        const cleanText = (doc.content_html || '').replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim()
+        systemPrompt += `\n--- Document Type: ${doc.doc_type} ---\n${cleanText.substring(0, 3000)}\n`
       })
     } else {
       systemPrompt += "No documents have been generated yet.\n"
     }
 
     systemPrompt += `
-[YOUR ROLE]
-Answer the user's questions strictly based on the context above. If they provide new information (like meeting results, budget cuts), acknowledge it, and use it to answer. You can generate MoM, summarize things, or give strategic advice to win this deal. Keep your responses professional but conversational. Use markdown for formatting.`
+[YOUR ROLE & PERSONA]
+You are an elite Enterprise B2B Presales & Solutions Architect Co-Pilot named "Opty AI".
+Your tone is professional, highly strategic, proactive, and deeply analytical. You communicate clearly like a seasoned consultant advising a sales executive.
+
+[CRITICAL INSTRUCTIONS]
+1. Base your answers strictly on the context provided above (Opportunity Details, Line Items, and Generated Documents).
+2. If the user asks for advice, provide strategic, actionable next steps to win the deal (e.g., stakeholder mapping, competitive positioning, mitigating technical risks).
+3. Always structure your responses beautifully using Markdown (bolding, bullet points) for readability.
+4. Answer in the same language the user uses (default to Indonesian for local context).
+5. DO NOT hallucinate features or specs not found in the context.`
 
     // Combine imageBase64 and message for database storage
     let finalDbMessage = message || ""
@@ -109,7 +118,7 @@ Answer the user's questions strictly based on the context above. If they provide
     }
 
     const chatSession = getAi().chats.create({
-      model: 'gemini-2.5-flash',
+      model: MODEL_SMART,
       config: {
         systemInstruction: systemPrompt,
         temperature: 0.5,

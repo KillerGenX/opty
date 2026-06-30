@@ -33,8 +33,8 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
     .eq('category', 'STAGE')
     .order('sort_order', { ascending: true })
 
-  const stagesList = stageSettings && stageSettings.length > 0 
-    ? stageSettings.map(s => s.value) 
+  const stagesList = stageSettings && stageSettings.length > 0
+    ? stageSettings.map(s => s.value)
     : ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Won', 'Lost']
 
   const formatCurrency = (value: number) => {
@@ -76,7 +76,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
           <TabsTrigger value="ai_chat" className="text-emerald-600 dark:text-emerald-400 font-medium">AI Chat</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
-        
+
         {/* Tab Content: Overview */}
         <TabsContent value="overview" className="mt-6 space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
@@ -148,7 +148,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                     <div className="text-sm font-medium text-slate-500 dark:text-zinc-400">Data Completeness</div>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 bg-slate-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full transition-all ${opty.completeness_score >= 80 ? 'bg-emerald-500' : opty.completeness_score >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
                           style={{ width: `${opty.completeness_score || 0}%` }}
                         />
@@ -159,7 +159,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card className="md:col-span-2 shadow-sm border-emerald-200 dark:border-emerald-900">
               <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-b border-emerald-100 dark:border-emerald-900/50">
                 <CardTitle className="text-emerald-950 dark:text-emerald-100">Context for AI Generation</CardTitle>
@@ -186,7 +186,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-2">Constraints & Risks</div>
@@ -227,17 +227,17 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
         {/* Tab Content: AI Docs */}
         <TabsContent value="ai_docs" className="mt-6">
-          <AIDocumentsTab 
-            opportunityId={opty.id} 
+          <AIDocumentsTab
+            opportunityId={opty.id}
             opportunityName={opty.opportunity_name}
-            completenessScore={50} // Can be calculated similar to overview
+            completenessScore={opty.completeness_score || 0}
           />
         </TabsContent>
 
         {/* Tab Content: AI Chat Assistant */}
         <TabsContent value="ai_chat" className="mt-6">
-          <AIChatTab 
-            opportunityId={opty.id} 
+          <AIChatTab
+            opportunityId={opty.id}
             opportunityName={opty.opportunity_name}
           />
         </TabsContent>
