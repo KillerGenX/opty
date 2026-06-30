@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Sparkles, UploadCloud, X, Loader2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Sparkles, UploadCloud, X, Loader2, Image as ImageIcon, Box } from "lucide-react"
 
 interface GenerateOptionsDialogProps {
   open: boolean
@@ -19,6 +20,9 @@ export function GenerateOptionsDialog({ open, onOpenChange, onGenerate, docTitle
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [imageStyle, setImageStyle] = useState("photorealistic") // Default to the preferred photographic style
+  
+  const isImageDoc = docTitle.includes("Concept") || docTitle.includes("Poster") || docTitle.includes("Art")
 
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -84,8 +88,19 @@ export function GenerateOptionsDialog({ open, onOpenChange, onGenerate, docTitle
         }
       }
 
+      let finalContext = context.trim()
+      
+      // Auto-append style prompt for Image Generation models
+      if (isImageDoc) {
+        const stylePrompt = imageStyle === 'photorealistic' 
+          ? "CRITICAL MANDATORY INSTRUCTION: Generate a hyper-realistic 3D product photography or automotive brochure style. Use a clean, structured CAD/brochure layout showing photorealistic real-world equipment. Do NOT use abstract or cartoonish isometric drawings."
+          : "CRITICAL MANDATORY INSTRUCTION: Generate an Isometric Technical Illustration. Use a drawn blueprint vector style with clean lines and no photorealism."
+          
+        finalContext = stylePrompt + (finalContext ? "\n\n" + finalContext : "")
+      }
+
       await onGenerate({ 
-        additionalContext: context.trim() ? context.trim() : undefined, 
+        additionalContext: finalContext ? finalContext : undefined, 
         referenceImage 
       })
       onOpenChange(false)
@@ -110,6 +125,35 @@ export function GenerateOptionsDialog({ open, onOpenChange, onGenerate, docTitle
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto flex flex-col gap-6 py-4 pr-2 -mr-2">
+          
+          {isImageDoc && (
+            <div className="flex flex-col gap-2">
+              <Label>Infographic Output Style</Label>
+              <div className="text-xs text-slate-500 mb-1">
+                Choose the visual rendering style for the final image.
+              </div>
+              <Select value={imageStyle} onValueChange={(value) => value && setImageStyle(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select style..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="photorealistic">
+                    <div className="flex items-center">
+                      <ImageIcon className="h-4 w-4 mr-2 text-blue-500" />
+                      Hyper-Realistic (Photographic CAD)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="isometric">
+                    <div className="flex items-center">
+                      <Box className="h-4 w-4 mr-2 text-emerald-500" />
+                      Isometric Illustration (Vector Art)
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
             <Label>Reference Image (Optional)</Label>
             <div className="text-xs text-slate-500 mb-1">
