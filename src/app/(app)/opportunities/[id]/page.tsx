@@ -1,8 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Pencil } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +8,7 @@ import { AIDocumentsTab } from "@/components/opportunities/AIDocumentsTab"
 import { AIChatTab } from "@/components/opportunities/AIChatTab"
 import { ActivityLogTab } from "@/components/opportunities/ActivityLogTab"
 import { OpportunityHeaderActions } from "@/components/opportunities/OpportunityHeaderActions"
+import { EditButton } from "@/components/opportunities/EditButton"
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -52,11 +50,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
           </div>
           <p className="text-slate-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
             {opty.customer_name} {opty.customer_industry ? `• ${opty.customer_industry}` : ''}
-            <Link href={`/opportunities/${opty.id}/edit`}>
-              <Button variant="outline" size="sm" className="ml-2 h-7 gap-1.5 rounded-full px-3">
-                <Pencil className="h-3 w-3" /> Edit Detail
-              </Button>
-            </Link>
+            <EditButton optyId={opty.id} />
           </p>
         </div>
         <div className="text-right mt-4 md:mt-0">
