@@ -81,20 +81,22 @@ CRITICAL INSTRUCTION 3 (TOKEN SAVER): To prevent JSON output from being truncate
 
 Extract the following information and output strictly in JSON format matching this schema:
 {
-  "opportunity_name": "String (Give a concise title for the project)",
-  "opportunity_type": "String (Classify the main solution type into one of these if possible: ${typesStr}, or use a custom one)",
-  "request_type": "String (e.g., New Installation, Upgrade, Downgrade, Relocation, Termination)",
-  "sfa_id": "String (Salesforce ID or CRM ID if present)",
-  "quote_id": "String (Quotation ID or reference if present)",
-  "customer_name": "String (Name of the client company)",
-  "customer_industry": "String (Classify into one of these if possible: ${industriesStr}, or use custom)",
+  "opportunity_name": "String (A short, professional project name. If missing, generate one based on the products, e.g. 'Pengadaan Internet Dedicated 100 Mbps')",
+  "customer_name": "String (The name of the company/client)",
+  "customer_industry": "String (Classify into one of these if possible: ${industriesStr})",
   "customer_segment": "String (Classify into one of these if possible: ${segmentsStr}, or use custom)",
   "customer_pic": "String (Name of the person in charge or contact person if available)",
   "customer_contact": "String (Email or phone if available)",
   "customer_address": "String (Full physical address of the customer or site)",
+  "opportunity_type": "String (Classify the main solution type into one of these if possible: ${typesStr}, or use a custom one)",
+  "request_type": "String (e.g., New Installation, Upgrade, Downgrade, Relocation, Termination)",
+  "sfa_id": "String (Salesforce ID or CRM ID if present)",
+  "quote_id": "String (Quotation ID or reference if present)",
   "expected_close_date": "String (Target closing date or timeline. MUST be formatted strictly as YYYY-MM-DD. If only a month/year is known like 'June 2026', use the last day of that month, e.g., '2026-06-30'. If no date is found, leave as empty string '')",
   "probability": "Number (Estimate win probability as an integer 5-95. Use this scoring logic — start at a base score then apply modifiers: BASE: New Installation=20, Upgrade/Expansion=50, Renewal/Retention=75, Relocation=55, Downgrade=30, Unknown=30. MODIFIERS: +20 if products are native Indosat/IOH owned (e.g. MPLS, DIA, Metro-E, IP Transit, IndiHome Business, ION); +15 if document clearly shows existing customer relationship (e.g. 'existing circuit', 'renewal', 'upgrade from current'); +15 if budget is explicitly stated or a PO/approval is mentioned; +10 if no competitors are mentioned at all; -15 if strong competitors like Telkom, XL Axiata, Lintasarta, CBN, Biznet are explicitly mentioned as shortlisted; -20 if this is a competitive open tender (multiple bidders mentioned); +10 if C-level or Director is directly involved in the email. Cap final score between 5 and 95. Output as a plain integer with NO percent sign.)",
-  "scope_of_work": "String (Summarize the phases and deliverables. Do not list raw SKUs here. Keep it high-level and concise.)",
+  "total_value": "Number (Extract the total budget/TCV if mentioned)",
+  "stage": "String (Default to 'Prospect' unless context implies it's in Negotiation or Closed)",
+  "scope_of_work": "String (Summarize what needs to be done. Keep it high-level and concise.)",
   "technical_requirements": "String (Summarize SLA, bandwidth, performance, compatibility specs.)",
   "pain_points": "String (Summarize using As-Is -> Business Impact -> To-Be structure if possible.)",
   "constraints": "String (Summarize Commercial, Timeline, Technical, or Operational constraints.)",
@@ -102,12 +104,12 @@ Extract the following information and output strictly in JSON format matching th
   "decision_criteria": "String (Any decision criteria)",
   "line_items": [
     {
-      "pillar": "String (Classify into one of these if possible: ${pillarsStr})",
+      "pillar": "String (Classify into one of these if possible: ${pillarsStr}. HINT: For Telco links like MPLS, Internet, or DIA, ALWAYS prefer 'Connectivity'.)",
       "product_name": "String (Best guess of the product/service name, e.g. MPLS L2, DIA, etc.)",
       "specification": "String (General technical details, SLA, or term.)",
       "quantity": "Number (Number of UNITS or LINKS/CIRCUITS. For Telco, this is usually 1 per circuit, NOT the bandwidth. For hardware, this is the number of units. Default to 1 if unknown.)",
       "capacity": "String (Descriptive bandwidth. IMPORTANT NORMALIZATION: Remove thousand separators (e.g. '2.800 Mbps' -> '2800 Mbps') but PRESERVE true decimals (e.g. '2.5 Gbps' stays '2.5 Gbps'). Convert comma decimals to dot decimals ('2,5 Gbps' -> '2.5 Gbps').)",
-      "unit": "String (Unit of the quantity, e.g. link, circuit, unit, node, user, license)",
+      "unit": "String (Unit of the quantity, e.g. circuit, link, unit, node, user, license. For Telco, prefer 'circuit' or 'link')",
       "mrc": "Number (Monthly Recurring Charge. Do not format with commas/periods, just raw number)",
       "otc": "Number (One Time Charge or unit price for hardware. Do not format with commas/periods, just raw number)",
       "contract_term": "Number (Duration in months, e.g. 24 for 2 years. For hardware, this can be warranty period.)",
@@ -155,7 +157,7 @@ If the document is a hardware/ICT procurement (e.g. CCTV, Servers, Software):
     let cleanedText = ""
     try {
       cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      
+
       if (!cleanedText) {
         throw new Error("AI returned an empty response.")
       }
@@ -175,22 +177,22 @@ export async function generateConceptImage(prompt: string, referenceImage?: { in
   try {
     // Gemini 3 Pro Image (Nano Banana Pro) uses the global endpoint via standard models API
     // Through Vertex AI, the correct method for this reasoning image model is generateContent
-    
+
     const contents: any[] = [{ text: prompt }];
     if (referenceImage) {
       contents.push(referenceImage);
     }
-    
+
     const response = await getAi().models.generateContent({
-       model: 'gemini-3-pro-image',
-       contents: contents
+      model: 'gemini-3-pro-image',
+      contents: contents
     });
-    
+
     const parts = response.candidates?.[0]?.content?.parts;
     const imagePart = parts?.find((p: any) => p.inlineData);
-    
+
     if (imagePart?.inlineData?.data) {
-       return imagePart.inlineData.data;
+      return imagePart.inlineData.data;
     }
     throw new Error("Failed to extract inlineData image from Gemini 3 Pro Image response.");
   } catch (error) {
